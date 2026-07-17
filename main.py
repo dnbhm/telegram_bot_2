@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Message
+from aiogram.client.default import DefaultBotProperties
 
 print("=" * 60)
 print("🚀 ЗАПУСК МИНИМАЛЬНОЙ ВЕРСИИ")
@@ -25,9 +26,16 @@ if not BOT_TOKEN:
     print("❌ Нет токена!")
     sys.exit(1)
 
-bot = Bot(token=BOT_TOKEN)
+# Создаем бота с увеличенным таймаутом и без прокси
+bot = Bot(
+    token=BOT_TOKEN,
+    default=DefaultBotProperties(
+        parse_mode="HTML",
+        request_timeout=120
+    )
+)
 dp = Dispatcher(storage=MemoryStorage())
-print("✅ Бот создан")
+print("✅ Бот создан с увеличенным таймаутом")
 
 @dp.message(Command("start"))
 async def start(message: Message):
