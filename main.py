@@ -26,39 +26,47 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.client.session.aiohttp import AiohttpSession
 
+# ===================== ПРИНУДИТЕЛЬНЫЙ ВЫВОД =====================
+print("=" * 60, flush=True)
+print("🚀 ЗАПУСК БОТА", flush=True)
+print("=" * 60, flush=True)
+print(f"Текущая директория: {os.getcwd()}", flush=True)
+print(f"Файлы: {os.listdir('.')}", flush=True)
+sys.stdout.flush()
+
 # Загружаем переменные из .env
 load_dotenv()
+print("✅ .env загружен", flush=True)
+sys.stdout.flush()
 
 # ===================== НАСТРОЙКА ПУТИ К ДАННЫМ =====================
-# Для Amvera используем /data (как в persistenceMount)
 DATA_DIR = "/data"
 
-# Если папки нет (локальная разработка) - используем data/
 if not os.path.exists(DATA_DIR):
     DATA_DIR = "data"
     os.makedirs(DATA_DIR, exist_ok=True)
-    print(f"📁 Создана локальная папка: {DATA_DIR}")
+    print(f"📁 Создана локальная папка: {DATA_DIR}", flush=True)
 else:
-    print(f"📁 Используется папка: {DATA_DIR}")
+    print(f"📁 Используется папка: {DATA_DIR}", flush=True)
 
 DATA_FILE = os.path.join(DATA_DIR, "data.json")
-print(f"📄 Файл данных: {DATA_FILE}")
+print(f"📄 Файл данных: {DATA_FILE}", flush=True)
+sys.stdout.flush()
 
 # ===================== КОНФИГУРАЦИЯ =====================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
 VIDEO_NOTE_ID = os.getenv("VIDEO_NOTE_ID")
 
-# Проверка наличия токена
 if not BOT_TOKEN:
-    raise ValueError("❌ BOT_TOKEN не найден в .env файле!")
+    print("❌ BOT_TOKEN не найден!", flush=True)
+    sys.exit(1)
 
-print(f"✅ Бот инициализирован. Админов: {len(ADMIN_IDS)}")
+print(f"✅ Бот инициализирован. Админов: {len(ADMIN_IDS)}", flush=True)
 
 CACHE_TTL = 30
 SAVE_INTERVAL = 10
 
-# ... остальной код бота ...
 # Тексты для рассылок
 WEEKLY_PLAN_TEXT = (
     "Приветииик🤍 Начинается новая неделя, новые возможности, а это значит, "
@@ -84,24 +92,24 @@ WEEKLY_REVIEW_TEXT = (
 )
 
 # ===================== СОЗДАНИЕ БОТА =====================
-print("🔌 Инициализация бота...")
+print("🔌 Инициализация бота...", flush=True)
 
-# ОТКЛЮЧАЕМ ПРОКСИ
 PROXY_URL = None
 
 if PROXY_URL:
-    print(f"🔌 Пробую подключиться через прокси: {PROXY_URL.split('@')[-1] if '@' in PROXY_URL else PROXY_URL}")
+    print(f"🔌 Пробую подключиться через прокси: {PROXY_URL.split('@')[-1] if '@' in PROXY_URL else PROXY_URL}",
+          flush=True)
     try:
         session = AiohttpSession(proxy=PROXY_URL, timeout=30)
         bot = Bot(token=BOT_TOKEN, session=session)
-        print("✅ Бот создан с прокси")
+        print("✅ Бот создан с прокси", flush=True)
     except Exception as e:
-        print(f"❌ Ошибка создания бота с прокси: {e}")
-        print("🔄 Запускаю без прокси...")
+        print(f"❌ Ошибка создания бота с прокси: {e}", flush=True)
+        print("🔄 Запускаю без прокси...", flush=True)
         bot = Bot(token=BOT_TOKEN)
 else:
     bot = Bot(token=BOT_TOKEN)
-    print("✅ Бот создан без прокси")
+    print("✅ Бот создан без прокси", flush=True)
 
 dp = Dispatcher(storage=MemoryStorage())
 
@@ -569,6 +577,8 @@ class DataManager:
                 user_data["video_sent"] = False
             if "weekly_goals" not in user_data:
                 user_data["weekly_goals"] = []
+            if "is_admin" not in user_data:
+                user_data["is_admin"] = False
 
     async def get(self):
         if self.data is None or (time.time() - self.last_load) > CACHE_TTL:
@@ -602,6 +612,12 @@ class DataManager:
             except Exception as e:
                 logging.error(f"Ошибка в цикле автосохранения: {e}")
 
+    def get_real_users(self):
+        """Возвращает только не-админов"""
+        if not self.data:
+            return {}
+        return {uid: data for uid, data in self.data["users"].items() if not data.get("is_admin", False)}
+
 
 data_manager = DataManager()
 
@@ -620,6 +636,22 @@ def init_user(user_id: int, first_name: str = "", username: str = ""):
     user_id_str = str(user_id)
     now = int(time.time())
 
+    # Если пользователь админ - не сохраняем его в статистику
+    if user_id in ADMIN_IDS:
+        # Но сохраняем как админа, чтобы не показывать в статистике
+        if user_id_str not in data_manager.data["users"]:
+            data_manager.data["users"][user_id_str] = {
+                "first_name": first_name,
+                "username": username,
+                "first_seen": now,
+                "last_active": now,
+                "is_admin": True
+            }
+        else:
+            data_manager.data["users"][user_id_str]["last_active"] = now
+            data_manager.data["users"][user_id_str]["is_admin"] = True
+        return
+
     default_user = {
         "first_name": first_name,
         "username": username,
@@ -633,13 +665,17 @@ def init_user(user_id: int, first_name: str = "", username: str = ""):
         "main_message_id": None,
         "admin_message_id": None,
         "video_sent": False,
-        "weekly_goals": []
+        "weekly_goals": [],
+        "is_admin": False
     }
 
     if user_id_str not in data_manager.data["users"]:
         data_manager.data["users"][user_id_str] = default_user
     else:
         existing = data_manager.data["users"][user_id_str]
+        # Если пользователь уже есть и это админ - пропускаем
+        if existing.get("is_admin", False):
+            return
         for key, value in default_user.items():
             if key not in existing:
                 existing[key] = value
@@ -673,6 +709,10 @@ def mark_lesson_done(user_id: int, module_id: int, lesson_idx: int):
     user_id_str = str(user_id)
     module_str = str(module_id)
 
+    # Если пользователь админ - не отмечаем прогресс
+    if user_id in ADMIN_IDS:
+        return
+
     if module_str not in data_manager.data["users"][user_id_str]["module_progress"]:
         data_manager.data["users"][user_id_str]["module_progress"][module_str] = [False] * len(
             MODULES[module_id]["lessons"])
@@ -695,6 +735,11 @@ def mark_lesson_done(user_id: int, module_id: int, lesson_idx: int):
 def is_module_completed(user_id: int, module_id: int) -> bool:
     user_id_str = str(user_id)
     module_str = str(module_id)
+
+    # Админы не проходят модули
+    if user_id in ADMIN_IDS:
+        return False
+
     if module_str not in data_manager.data["users"][user_id_str]["module_progress"]:
         return False
     progress = data_manager.data["users"][user_id_str]["module_progress"][module_str]
@@ -705,6 +750,16 @@ def get_user_progress(user_id: int) -> Dict[str, Any]:
     user_id_str = str(user_id)
     if user_id_str not in data_manager.data["users"]:
         return {}
+
+    # Если пользователь админ - показываем только его прогресс, но не добавляем в статистику
+    if user_id in ADMIN_IDS:
+        return {
+            "overall_percent": 0,
+            "answered": 0,
+            "total": TOTAL_LESSONS,
+            "modules": {}
+        }
+
     answers = data_manager.data["users"][user_id_str]["answers"]
     answered_lessons = len(answers)
     overall_percent = (answered_lessons / TOTAL_LESSONS * 100) if TOTAL_LESSONS else 0
@@ -1009,7 +1064,8 @@ async def show_mailing_menu(admin_id: int):
 
 
 async def send_weekly_plan_manual(admin_id: int, status_msg: Message):
-    users = list(data_manager.data["users"].keys())
+    # Получаем только реальных пользователей (не админов)
+    users = list(data_manager.get_real_users().keys())
     sent = 0
     failed = 0
 
@@ -1035,7 +1091,8 @@ async def send_weekly_plan_manual(admin_id: int, status_msg: Message):
 
 
 async def send_weekly_review_manual(admin_id: int, status_msg: Message):
-    users = list(data_manager.data["users"].keys())
+    # Получаем только реальных пользователей (не админов)
+    users = list(data_manager.get_real_users().keys())
     sent = 0
     failed = 0
 
@@ -1061,7 +1118,9 @@ async def send_weekly_review_manual(admin_id: int, status_msg: Message):
 
 
 async def show_users_list(admin_id: int, page: int = 0):
-    users = list(data_manager.data["users"].items())
+    # Получаем только реальных пользователей (не админов)
+    all_users = data_manager.data["users"].items()
+    users = [(uid, data) for uid, data in all_users if not data.get("is_admin", False)]
     users.sort(key=lambda x: x[1].get("last_active", 0), reverse=True)
 
     if not users:
@@ -1122,6 +1181,12 @@ async def show_user_detail(admin_id: int, target_user_id: str):
         return
 
     u = data_manager.data["users"][target_user_id]
+
+    # Если это админ - не показываем
+    if u.get("is_admin", False):
+        await edit_admin_message(admin_id, "❌ Это админ, данные скрыты")
+        return
+
     first_seen = datetime.fromtimestamp(u.get("first_seen", 0)).strftime("%d.%m.%Y %H:%M")
     last_active = datetime.fromtimestamp(u.get("last_active", 0)).strftime("%d.%m.%Y %H:%M")
 
@@ -1155,8 +1220,8 @@ async def show_user_detail(admin_id: int, target_user_id: str):
 
 async def show_user_answers(admin_id: int, target_user_id: str, page: int = 0):
     user_data = data_manager.data["users"].get(target_user_id)
-    if not user_data:
-        await edit_admin_message(admin_id, "❌ Пользователь не найден")
+    if not user_data or user_data.get("is_admin", False):
+        await edit_admin_message(admin_id, "❌ Пользователь не найден или это админ")
         return
 
     answers = user_data.get("answers", {})
@@ -1203,8 +1268,8 @@ async def show_user_answers(admin_id: int, target_user_id: str, page: int = 0):
 
 async def show_user_goals(admin_id: int, target_user_id: str, page: int = 0):
     user_data = data_manager.data["users"].get(target_user_id)
-    if not user_data:
-        await edit_admin_message(admin_id, "❌ Пользователь не найден")
+    if not user_data or user_data.get("is_admin", False):
+        await edit_admin_message(admin_id, "❌ Пользователь не найден или это админ")
         return
 
     goals = user_data.get("weekly_goals", [])
@@ -1280,6 +1345,9 @@ async def show_module_stats(admin_id: int):
 async def show_feedbacks(admin_id: int, page: int = 0):
     all_feedbacks = []
     for user_id_str, user_data in data_manager.data["users"].items():
+        # Пропускаем админов
+        if user_data.get("is_admin", False):
+            continue
         feedbacks = user_data.get("feedback", {})
         for mod_str, fb_list in feedbacks.items():
             mod_id = int(mod_str)
@@ -1332,13 +1400,16 @@ async def show_feedbacks(admin_id: int, page: int = 0):
 
 
 async def show_overview(admin_id: int):
-    total_users = len(data_manager.data["users"])
-    active_users = sum(1 for u in data_manager.data["users"].values() if u.get("last_active", 0) > time.time() - 86400)
-    total_answers = sum(len(u.get("answers", {})) for u in data_manager.data["users"].values())
-    total_feedbacks = sum(len(fb) for u in data_manager.data["users"].values() for fb in u.get("feedback", {}).values())
+    # Получаем только реальных пользователей (не админов)
+    real_users = [u for u in data_manager.data["users"].values() if not u.get("is_admin", False)]
+
+    total_users = len(real_users)
+    active_users = sum(1 for u in real_users if u.get("last_active", 0) > time.time() - 86400)
+    total_answers = sum(len(u.get("answers", {})) for u in real_users)
+    total_feedbacks = sum(len(fb) for u in real_users for fb in u.get("feedback", {}).values())
 
     module_stats = {}
-    for user in data_manager.data["users"].values():
+    for user in real_users:
         for mod_str, prog in user.get("module_progress", {}).items():
             if all(prog):
                 module_stats[mod_str] = module_stats.get(mod_str, 0) + 1
@@ -1404,7 +1475,8 @@ async def cmd_send_plan(message: Message, state: FSMContext):
     await state.clear()
     status_msg = await message.answer("🔄 Начинаю массовую рассылку (план)...")
 
-    users = list(data_manager.data["users"].keys())
+    # Получаем только реальных пользователей (не админов)
+    users = list(data_manager.get_real_users().keys())
     sent = 0
     failed = 0
 
@@ -1437,7 +1509,8 @@ async def cmd_send_review(message: Message, state: FSMContext):
     await state.clear()
     status_msg = await message.answer("🔄 Начинаю массовую рассылку (итог)...")
 
-    users = list(data_manager.data["users"].keys())
+    # Получаем только реальных пользователей (не админов)
+    users = list(data_manager.get_real_users().keys())
     sent = 0
     failed = 0
 
@@ -1470,19 +1543,21 @@ async def cmd_start(message: Message, state: FSMContext):
     init_user(user.id, user.first_name, user.username)
     user_data = data_manager.data["users"][str(user.id)]
 
-    if not user_data.get("video_sent", False):
-        try:
-            video_note_path = "video_notes/welcome_2.mp4"
-            if os.path.exists(video_note_path):
-                video_note = FSInputFile(video_note_path)
-                await bot.send_video_note(chat_id=user.id, video_note=video_note)
-                user_data["video_sent"] = True
-                await data_manager.mark_dirty()
-                await asyncio.sleep(0.5)
-            else:
-                logging.warning(f"Файл {video_note_path} не найден")
-        except Exception as e:
-            logging.error(f"Ошибка отправки кружка: {e}")
+    # Если админ - не отправляем видео и не сохраняем в статистику
+    if user.id not in ADMIN_IDS:
+        if not user_data.get("video_sent", False):
+            try:
+                video_note_path = "video_notes/welcome_2.mp4"
+                if os.path.exists(video_note_path):
+                    video_note = FSInputFile(video_note_path)
+                    await bot.send_video_note(chat_id=user.id, video_note=video_note)
+                    user_data["video_sent"] = True
+                    await data_manager.mark_dirty()
+                    await asyncio.sleep(0.5)
+                else:
+                    logging.warning(f"Файл {video_note_path} не найден")
+            except Exception as e:
+                logging.error(f"Ошибка отправки кружка: {e}")
 
     await show_main_menu(user.id)
 
@@ -1495,8 +1570,19 @@ async def cmd_stats(message: Message, state: FSMContext):
 
     await state.clear()
     await data_manager.get()
-    init_user(message.from_user.id, message.from_user.first_name, message.from_user.username)
-    await data_manager.mark_dirty()
+
+    # Сохраняем админа как админа (не показываем в статистике)
+    user_id_str = str(message.from_user.id)
+    if user_id_str not in data_manager.data["users"]:
+        data_manager.data["users"][user_id_str] = {
+            "first_name": message.from_user.first_name,
+            "username": message.from_user.username,
+            "first_seen": int(time.time()),
+            "last_active": int(time.time()),
+            "is_admin": True
+        }
+        await data_manager.mark_dirty()
+
     await show_admin_panel(message.from_user.id)
 
 
@@ -1776,18 +1862,18 @@ async def admin_callback(callback: CallbackQuery, state: FSMContext):
 
 # ===================== ЗАПУСК =====================
 async def on_startup():
-    print(f"📂 Загрузка данных из: {DATA_FILE}")
+    print(f"📂 Загрузка данных из: {DATA_FILE}", flush=True)
     await data_manager.load()
-    print(f"✅ Данные загружены. Пользователей: {len(data_manager.data['users'])}")
-    print("🔄 Запуск автосохранения...")
+    print(f"✅ Данные загружены. Пользователей: {len(data_manager.data['users'])}", flush=True)
+    print("🔄 Запуск автосохранения...", flush=True)
     asyncio.create_task(data_manager.auto_save_loop())
-    print("🚀 Бот запущен!")
+    print("🚀 Бот запущен!", flush=True)
 
 
 async def on_shutdown():
-    print("💾 Сохранение данных...")
+    print("💾 Сохранение данных...", flush=True)
     await data_manager.save(force=True)
-    print("✅ Данные сохранены. Бот остановлен.")
+    print("✅ Данные сохранены. Бот остановлен.", flush=True)
 
 
 async def main():
@@ -1800,7 +1886,7 @@ async def main():
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 
-    print("🔄 Запуск polling...")
+    print("🔄 Запуск polling...", flush=True)
     await dp.start_polling(bot)
 
 
@@ -1808,7 +1894,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("👋 Бот остановлен пользователем")
+        print("👋 Бот остановлен пользователем", flush=True)
     except Exception as e:
-        print(f"❌ Критическая ошибка: {e}")
+        print(f"❌ Критическая ошибка: {e}", flush=True)
         sys.exit(1)
