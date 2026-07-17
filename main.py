@@ -4,7 +4,7 @@ print("=" * 60)
 print("🚀 ЗАПУСК main.py")
 print("=" * 60)
 sys.stdout.flush()
-
+from aiogram.fsm.state import State, StatesGroup  # <-- ЭТО НУЖНО ДОБАВИТЬ!
 import asyncio
 print("✅ asyncio импортирован")
 sys.stdout.flush()
