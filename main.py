@@ -1002,7 +1002,6 @@ async def show_mailing_menu(admin_id: int):
     )
 
 
-# NEW: Функции для ручной рассылки
 async def send_weekly_plan_manual(admin_id: int, status_msg: Message):
     users = list(data_manager.data["users"].keys())
     sent = 0
@@ -1011,7 +1010,8 @@ async def send_weekly_plan_manual(admin_id: int, status_msg: Message):
     for idx, user_id_str in enumerate(users):
         user_id = int(user_id_str)
         try:
-            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyPlanState.waiting)
+            # Убираем скобки - передаем класс, а не экземпляр
+            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyPlanState)
             await bot.send_message(user_id, WEEKLY_PLAN_TEXT)
             sent += 1
             logging.info(f"Ручная рассылка (план) пользователю {user_id}")
@@ -1020,7 +1020,7 @@ async def send_weekly_plan_manual(admin_id: int, status_msg: Message):
             logging.error(f"Ошибка ручной рассылки (план) {user_id}: {e}")
 
         if idx < len(users) - 1:
-            await asyncio.sleep(1)  # небольшая задержка
+            await asyncio.sleep(0.5)
 
     await status_msg.edit_text(
         f"✅ Рассылка «Начало недели» завершена!\n"
@@ -1037,7 +1037,8 @@ async def send_weekly_review_manual(admin_id: int, status_msg: Message):
     for idx, user_id_str in enumerate(users):
         user_id = int(user_id_str)
         try:
-            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyReviewState.waiting)
+            # Убираем скобки - передаем класс, а не экземпляр
+            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyReviewState)
             await bot.send_message(user_id, WEEKLY_REVIEW_TEXT)
             sent += 1
             logging.info(f"Ручная рассылка (итог) пользователю {user_id}")
@@ -1046,7 +1047,7 @@ async def send_weekly_review_manual(admin_id: int, status_msg: Message):
             logging.error(f"Ошибка ручной рассылки (итог) {user_id}: {e}")
 
         if idx < len(users) - 1:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
 
     await status_msg.edit_text(
         f"✅ Рассылка «Конец недели» завершена!\n"
@@ -1408,7 +1409,8 @@ async def cmd_send_plan(message: Message, state: FSMContext):
     for idx, user_id_str in enumerate(users):
         user_id = int(user_id_str)
         try:
-            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyPlanState.waiting)
+            # Убираем скобки
+            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyPlanState)
             await bot.send_message(user_id, WEEKLY_PLAN_TEXT)
             sent += 1
             logging.info(f"Массовая рассылка (план) пользователю {user_id}")
@@ -1417,7 +1419,7 @@ async def cmd_send_plan(message: Message, state: FSMContext):
             logging.error(f"Ошибка массовой рассылки (план) {user_id}: {e}")
 
         if idx < len(users) - 1:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
 
     await status_msg.edit_text(
         f"✅ Массовая рассылка «Начало недели» завершена!\n"
@@ -1442,7 +1444,8 @@ async def cmd_send_review(message: Message, state: FSMContext):
     for idx, user_id_str in enumerate(users):
         user_id = int(user_id_str)
         try:
-            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyReviewState.waiting)
+            # Убираем скобки
+            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyReviewState)
             await bot.send_message(user_id, WEEKLY_REVIEW_TEXT)
             sent += 1
             logging.info(f"Массовая рассылка (итог) пользователю {user_id}")
@@ -1451,14 +1454,13 @@ async def cmd_send_review(message: Message, state: FSMContext):
             logging.error(f"Ошибка массовой рассылки (итог) {user_id}: {e}")
 
         if idx < len(users) - 1:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
 
     await status_msg.edit_text(
         f"✅ Массовая рассылка «Конец недели» завершена!\n"
         f"📤 Отправлено: {sent}\n"
         f"❌ Ошибок: {failed}"
     )
-
 
 # ===================== ХЭНДЛЕРЫ КОМАНД =====================
 @dp.message(CommandStart())
@@ -1663,7 +1665,7 @@ async def process_feedback(message: Message, state: FSMContext):
 
 
 # ===================== ОБРАБОТЧИКИ ОТВЕТОВ НА НЕДЕЛЬНЫЕ ВОПРОСЫ =====================
-@dp.message(WeeklyPlanState)
+@dp.message(WeeklyPlanState)  # Без скобок!
 async def process_weekly_plan(message: Message, state: FSMContext):
     user_id = message.from_user.id
     user = message.from_user
@@ -1688,7 +1690,7 @@ async def process_weekly_plan(message: Message, state: FSMContext):
     await state.clear()
 
 
-@dp.message(WeeklyReviewState)
+@dp.message(WeeklyReviewState)  # Без скобок!
 async def process_weekly_review(message: Message, state: FSMContext):
     user_id = message.from_user.id
     user = message.from_user
@@ -1711,7 +1713,6 @@ async def process_weekly_review(message: Message, state: FSMContext):
     asyncio.create_task(delete_message_after(thank.chat.id, thank.message_id, 2))
 
     await state.clear()
-
 
 # ===================== АДМИНСКИЕ CALLBACK =====================
 @dp.callback_query(F.data.startswith("admin:"))
