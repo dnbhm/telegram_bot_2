@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 
 import aiofiles
+from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command, CommandStart
@@ -24,9 +25,20 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.client.session.aiohttp import AiohttpSession
 
+# Загружаем переменные из .env
+load_dotenv()
+
 # ===================== КОНФИГУРАЦИЯ =====================
-BOT_TOKEN = "8735720656:AAHkbPLvP12dS_1ti1sdBlVbIBqZuj96CfY"
-ADMIN_IDS = [618127768, 885023976, 545988920]  # Замените на свои ID
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
+PROXY_URL = os.getenv("PROXY_URL") or None
+VIDEO_NOTE_ID = os.getenv("VIDEO_NOTE_ID")
+
+# Проверка наличия токена
+if not BOT_TOKEN:
+    raise ValueError("❌ BOT_TOKEN не найден в .env файле!")
+
+print(f"✅ Бот инициализирован. Админов: {len(ADMIN_IDS)}")
 
 # НАСТРОЙКА HTTP ПРОКСИ (если не нужен - закомментируйте PROXY_URL)
 PROXY_URL = "http://Dx6Lq2:LtaZvL@77.83.116.51:8000"
