@@ -1543,24 +1543,24 @@ async def cmd_start(message: Message, state: FSMContext):
     init_user(user.id, user.first_name, user.username)
     user_data = data_manager.data["users"][str(user.id)]
 
-    # Если админ - не отправляем видео и не сохраняем в статистику
-    if user.id not in ADMIN_IDS:
-        if not user_data.get("video_sent", False):
-            try:
-                video_note_path = "video_notes/welcome_2.mp4"
-                if os.path.exists(video_note_path):
-                    video_note = FSInputFile(video_note_path)
-                    await bot.send_video_note(chat_id=user.id, video_note=video_note)
-                    user_data["video_sent"] = True
-                    await data_manager.mark_dirty()
-                    await asyncio.sleep(0.5)
-                else:
-                    logging.warning(f"Файл {video_note_path} не найден")
-            except Exception as e:
-                logging.error(f"Ошибка отправки кружка: {e}")
+    # Отправляем кружок ВСЕМ пользователям (включая админов)
+    if not user_data.get("video_sent", False):
+        try:
+            video_note_path = "video_notes/welcome_2.mp4"
+            if os.path.exists(video_note_path):
+                video_note = FSInputFile(video_note_path)
+                await bot.send_video_note(chat_id=user.id, video_note=video_note)
+                user_data["video_sent"] = True
+                await data_manager.mark_dirty()
+                await asyncio.sleep(0.5)
+            else:
+                logging.warning(f"Файл {video_note_path} не найден")
+                await message.answer("🎬 *Видео не найдено, но урок доступен по кнопке ниже!*", parse_mode="Markdown")
+        except Exception as e:
+            logging.error(f"Ошибка отправки кружка: {e}")
+            await message.answer("❌ *Ошибка при отправке видео. Попробуйте позже.*", parse_mode="Markdown")
 
     await show_main_menu(user.id)
-
 
 @dp.message(Command("stats"))
 async def cmd_stats(message: Message, state: FSMContext):
