@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import time
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
@@ -25,13 +26,27 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.client.session.aiohttp import AiohttpSession
 
+# ===================== НАСТРОЙКА ПУТИ К ДАННЫМ =====================
+# Для Amvera используем /app/data, для локальной разработки - data/
+DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+
+# Если папки нет - создаем
+if not os.path.exists(DATA_DIR):
+    DATA_DIR = "data"
+    os.makedirs(DATA_DIR, exist_ok=True)
+    print(f"📁 Создана локальная папка: {DATA_DIR}")
+else:
+    print(f"📁 Используется папка: {DATA_DIR}")
+
+DATA_FILE = os.path.join(DATA_DIR, "data.json")
+print(f"📄 Файл данных: {DATA_FILE}")
+
 # Загружаем переменные из .env
 load_dotenv()
 
 # ===================== КОНФИГУРАЦИЯ =====================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
-PROXY_URL = os.getenv("PROXY_URL") or None
 VIDEO_NOTE_ID = os.getenv("VIDEO_NOTE_ID")
 
 # Проверка наличия токена
@@ -42,11 +57,6 @@ print(f"✅ Бот инициализирован. Админов: {len(ADMIN_ID
 
 CACHE_TTL = 30
 SAVE_INTERVAL = 10
-DATA_FILE = "data/data.json"
-
-# ПРИНУДИТЕЛЬНО СОЗДАЕМ ПАПКУ data ПРИ ЗАПУСКЕ
-os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
-print(f"✅ Папка data создана: {os.path.dirname(DATA_FILE)}")
 
 # Тексты для рассылок
 WEEKLY_PLAN_TEXT = (
@@ -1765,7 +1775,7 @@ async def admin_callback(callback: CallbackQuery, state: FSMContext):
 
 # ===================== ЗАПУСК =====================
 async def on_startup():
-    print("📂 Загрузка данных...")
+    print(f"📂 Загрузка данных из: {DATA_FILE}")
     await data_manager.load()
     print(f"✅ Данные загружены. Пользователей: {len(data_manager.data['users'])}")
     print("🔄 Запуск автосохранения...")
@@ -1794,4 +1804,10 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("👋 Бот остановлен пользователем")
+    except Exception as e:
+        print(f"❌ Критическая ошибка: {e}")
+        sys.exit(1)

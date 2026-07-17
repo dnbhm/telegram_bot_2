@@ -1,0 +1,16 @@
+meta:
+  environment: python
+  toolchain:
+    name: pip
+    version: 3.11
+  build:
+    requirementsPath: requirements.txt
+
+run:
+  command: python -u main.py
+  containerPort: 8080
+  ram: 500
+  cpu: 0.25
+  volumes:
+    - name: data
+      path: /app/data
