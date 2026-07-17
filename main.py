@@ -1,37 +1,63 @@
-import asyncio
-import json
-import logging
-import os
+# ===================== САМЫЙ ПЕРВЫЙ ВЫВОД =====================
 import sys
+
+from aiogram.fsm.storage.memory import MemoryStorage
+
+print("=" * 60)
+print("🚀 ЗАПУСК main.py")
+print("=" * 60)
+sys.stdout.flush()  # Принудительно выводим в консоль
+
+import asyncio
+print("✅ asyncio импортирован")
+sys.stdout.flush()
+
+import json
+print("✅ json импортирован")
+sys.stdout.flush()
+
+import logging
+print("✅ logging импортирован")
+sys.stdout.flush()
+
+import os
+print("✅ os импортирован")
+sys.stdout.flush()
+
 import time
+print("✅ time импортирован")
+sys.stdout.flush()
+
 from datetime import datetime
+print("✅ datetime импортирован")
+sys.stdout.flush()
+
 from typing import Dict, List, Optional, Any, Tuple
+print("✅ typing импортирован")
+sys.stdout.flush()
 
 import aiofiles
+print("✅ aiofiles импортирован")
+sys.stdout.flush()
+
 from dotenv import load_dotenv
+print("✅ dotenv импортирован")
+sys.stdout.flush()
 
 from aiogram import Bot, Dispatcher, F, types
-from aiogram.filters import Command, CommandStart
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    Message,
-    CallbackQuery,
-    FSInputFile,
-)
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.exceptions import TelegramBadRequest
+print("✅ aiogram импортирован")
+sys.stdout.flush()
 
 # ===================== ПРОВЕРКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ =====================
 print("=" * 60)
 print("🔍 ПРОВЕРКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ")
 print("=" * 60)
+sys.stdout.flush()
 
 # Загружаем переменные из .env
 load_dotenv()
+print("✅ .env загружен")
+sys.stdout.flush()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_IDS_RAW = os.getenv("ADMIN_IDS", "")
@@ -42,14 +68,17 @@ if BOT_TOKEN:
     print(f"BOT_TOKEN (первые 10 символов): {BOT_TOKEN[:10]}...")
 print(f"ADMIN_IDS: {ADMIN_IDS_RAW}")
 print(f"VIDEO_NOTE_ID: {'✅ НАЙДЕН' if VIDEO_NOTE_ID else '❌ НЕ НАЙДЕН'}")
+sys.stdout.flush()
 
 if not BOT_TOKEN:
     print("❌ КРИТИЧЕСКАЯ ОШИБКА: BOT_TOKEN не найден!")
     print("Добавьте переменную BOT_TOKEN в настройках Amvera")
+    sys.stdout.flush()
     sys.exit(1)
 
 print("✅ Все переменные найдены!")
 print("=" * 60)
+sys.stdout.flush()
 
 # ===================== КОНФИГУРАЦИЯ =====================
 ADMIN_IDS = [int(x.strip()) for x in ADMIN_IDS_RAW.split(",") if x.strip()]
@@ -57,6 +86,7 @@ VIDEO_NOTE_ID = os.getenv("VIDEO_NOTE_ID")
 
 if not ADMIN_IDS:
     print("⚠️ ВНИМАНИЕ: ADMIN_IDS не задан! Бот будет работать без админов.")
+    sys.stdout.flush()
 
 # Отключаем прокси
 PROXY_URL = None
@@ -67,16 +97,33 @@ SAVE_INTERVAL = 10
 DATA_FILE = "data/data.json"
 
 print(f"✅ Бот инициализирован. Админов: {len(ADMIN_IDS)}")
+sys.stdout.flush()
 
 # Создаем папку data
 os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
 print("✅ Папка data создана/существует")
+sys.stdout.flush()
 
 # Создаем бота
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(storage=MemoryStorage())
-print("✅ Бот создан")
+try:
+    bot = Bot(token=BOT_TOKEN)
+    print("✅ Бот создан")
+    sys.stdout.flush()
+except Exception as e:
+    print(f"❌ Ошибка создания бота: {e}")
+    sys.stdout.flush()
+    sys.exit(1)
 
+dp = Dispatcher(storage=MemoryStorage())
+print("✅ Dispatcher создан")
+sys.stdout.flush()
+
+print("=" * 60)
+print("✅ ВСЕ ИМПОРТЫ И ИНИЦИАЛИЗАЦИЯ УСПЕШНО ЗАВЕРШЕНЫ")
+print("=" * 60)
+sys.stdout.flush()
+
+# ... ДАЛЬШЕ ВЕСЬ ОСТАЛЬНОЙ КОД БОТА ...
 # ===================== ТЕКСТЫ РАССЫЛОК =====================
 WEEKLY_PLAN_TEXT = (
     "Приветииик🤍 Начинается новая неделя, новые возможности, а это значит, "
