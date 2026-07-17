@@ -23,7 +23,6 @@ from aiogram.types import (
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.client.session.aiohttp import AiohttpSession
 
 # Загружаем переменные из .env
 load_dotenv()
@@ -31,62 +30,23 @@ load_dotenv()
 # ===================== КОНФИГУРАЦИЯ =====================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
-PROXY_URL = os.getenv("PROXY_URL") or None
 VIDEO_NOTE_ID = os.getenv("VIDEO_NOTE_ID")
 
-# Проверка наличия токена
 if not BOT_TOKEN:
     raise ValueError("❌ BOT_TOKEN не найден в .env файле!")
 
-print(f"✅ Бот инициализирован. Админов: {len(ADMIN_IDS)}")
+# Отключаем прокси
+PROXY_URL = None
 
+# НАСТРОЙКИ
 CACHE_TTL = 30
 SAVE_INTERVAL = 10
 DATA_FILE = "data/data.json"
-# Тексты для рассылок
-WEEKLY_PLAN_TEXT = (
-    "Приветииик🤍 Начинается новая неделя, новые возможности, а это значит, "
-    "что самое время поставить задачи и цели, чтобы держать фокус ⭐️\n\n"
-    "Ответь на несколько вопросов:\n\n"
-    "1️⃣ Какие у тебя цели на эту неделю?\n"
-    "2️⃣ Что ты хочешь изучить, в чём разобраться или какой навык прокачать?\n"
-    "3️⃣ Как ты себя порадуешь за выполнение плана?\n\n"
-    "Запиши их здесь, чтобы сделать эту неделю максимально продуктивной и интересной 🪩"
-)
 
-WEEKLY_REVIEW_TEXT = (
-    "Привееет💫 Конец недели, а это значит, что пора подводить итоги, "
-    "какой путь ты прошёл за эти дни 📝\n\n"
-    "Ответь на несколько вопросов:\n\n"
-    "1️⃣ Что из запланированного получилось?\n"
-    "2️⃣ За что ты себя можешь похвалить?\n"
-    "3️⃣ А может быть, случилось что-то неожиданное, чего ты не планировал(а), "
-    "но оно того стоило?\n\n"
-    "Запиши свои победы и мысли✨\n\n"
-    "Ты молодец уже только потому, что не останавливаешься, горжусь тобой🤍\n"
-    "Отдыхай и набирайся сил, скоро тебя ждёт новая неделя⭐️"
-)
+print(f"✅ Бот инициализирован. Админов: {len(ADMIN_IDS)}")
 
-# ===================== СОЗДАНИЕ БОТА =====================
-print("🔌 Инициализация бота...")
-
-# ОТКЛЮЧАЕМ ПРОКСИ - он вызывает ошибки!
-PROXY_URL = None
-
-if PROXY_URL:
-    print(f"🔌 Пробую подключиться через прокси: {PROXY_URL.split('@')[-1] if '@' in PROXY_URL else PROXY_URL}")
-    try:
-        session = AiohttpSession(proxy=PROXY_URL, timeout=30)
-        bot = Bot(token=BOT_TOKEN, session=session)
-        print("✅ Бот создан с прокси")
-    except Exception as e:
-        print(f"❌ Ошибка создания бота с прокси: {e}")
-        print("🔄 Запускаю без прокси...")
-        bot = Bot(token=BOT_TOKEN)
-else:
-    bot = Bot(token=BOT_TOKEN)
-    print("✅ Бот создан без прокси")
-
+# Создаем бота без прокси
+bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 # ===================== СТРУКТУРА МОДУЛЕЙ =====================
@@ -493,6 +453,19 @@ for key, text in LESSON_QUESTIONS.items():
     QUESTION_OPTIONS[key] = extract_options(text)
 
 
+# ===================== FSM =====================
+class FeedbackState(StatesGroup):
+    waiting = State()
+
+
+class WeeklyPlanState(StatesGroup):
+    waiting = State()
+
+
+class WeeklyReviewState(StatesGroup):
+    waiting = State()
+
+
 # ===================== КЛАСС ДЛЯ УПРАВЛЕНИЯ ДАННЫМИ =====================
 class DataManager:
     def __init__(self):
@@ -505,6 +478,9 @@ class DataManager:
 
     async def load(self):
         async with self.lock:
+            # Создаем папку data, если ее нет
+            os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+
             if os.path.exists(DATA_FILE):
                 try:
                     async with aiofiles.open(DATA_FILE, 'r', encoding='utf-8') as f:
@@ -515,6 +491,8 @@ class DataManager:
                     self.data = self._get_default_data()
             else:
                 self.data = self._get_default_data()
+                # Создаем файл при первом запуске
+                await self.save(force=True)
 
             self._ensure_structure()
             self.last_load = time.time()
@@ -559,6 +537,9 @@ class DataManager:
             return
         async with self.lock:
             try:
+                # Создаем папку data, если ее нет
+                os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+
                 async with aiofiles.open(DATA_FILE, 'w', encoding='utf-8') as f:
                     await f.write(json.dumps(self.data, ensure_ascii=False, indent=2))
                 self.last_save = time.time()
@@ -580,19 +561,6 @@ class DataManager:
 
 
 data_manager = DataManager()
-
-
-# ===================== FSM =====================
-class FeedbackState(StatesGroup):
-    waiting = State()
-
-
-class WeeklyPlanState(StatesGroup):
-    waiting = State()
-
-
-class WeeklyReviewState(StatesGroup):
-    waiting = State()
 
 
 # ===================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====================
@@ -646,7 +614,7 @@ def update_lesson_stats(module_id: int, lesson_idx: int, old_answer: Optional[st
         }
     data_manager.data["module_stats"][module_key]["total_answers"] += 1
     data_manager.data["module_stats"][module_key]["answers_by_letter"][new_answer] = \
-    data_manager.data["module_stats"][module_key]["answers_by_letter"].get(new_answer, 0) + 1
+        data_manager.data["module_stats"][module_key]["answers_by_letter"].get(new_answer, 0) + 1
 
 
 def mark_lesson_done(user_id: int, module_id: int, lesson_idx: int):
@@ -1352,7 +1320,6 @@ async def show_all_daily_answers(admin_id: int, page: int = 0):
 
 
 # ===================== КОМАНДЫ ДЛЯ АДМИНОВ =====================
-
 @dp.message(Command("test_plan"))
 async def cmd_test_plan(message: Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS:
@@ -1573,6 +1540,7 @@ async def process_answer(callback: CallbackQuery):
         await show_module_lessons(user_id, module_id)
 
 
+# ===================== ОБРАБОТЧИК ФИДБЕКА =====================
 @dp.callback_query(F.data.startswith("feedback_yes:"))
 async def feedback_yes(callback: CallbackQuery, state: FSMContext):
     user = callback.from_user
@@ -1581,6 +1549,7 @@ async def feedback_yes(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
     module_id = int(callback.data.split(":")[1])
+    # ПРАВИЛЬНО - без скобок
     await state.set_state(FeedbackState)
     await state.update_data(feedback_module=module_id)
 
@@ -1600,7 +1569,7 @@ async def feedback_no(callback: CallbackQuery):
     await show_main_menu(user.id)
 
 
-# ===================== ОБРАБОТЧИК ФИДБЕКА =====================
+# ПРАВИЛЬНО - без скобок
 @dp.message(FeedbackState)
 async def process_feedback(message: Message, state: FSMContext):
     user_id = message.from_user.id
@@ -1766,6 +1735,7 @@ async def main():
     dp.shutdown.register(on_shutdown)
 
     await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
