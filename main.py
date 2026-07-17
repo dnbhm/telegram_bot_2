@@ -42,7 +42,7 @@ print(f"✅ Бот инициализирован. Админов: {len(ADMIN_ID
 
 CACHE_TTL = 30
 SAVE_INTERVAL = 10
-DATA_FILE = "data.json"
+DATA_FILE = "data/data.json"
 
 # Тексты для рассылок
 WEEKLY_PLAN_TEXT = (
@@ -1602,7 +1602,7 @@ async def feedback_no(callback: CallbackQuery):
 
 
 # ===================== ОБРАБОТЧИК ФИДБЕКА =====================
-@dp.message(FeedbackState)
+@dp.message(FeedbackState.waiting)  # <-- ВАЖНО: используем .waiting
 async def process_feedback(message: Message, state: FSMContext):
     user_id = message.from_user.id
     user = message.from_user
@@ -1641,7 +1641,6 @@ async def process_feedback(message: Message, state: FSMContext):
 
     await state.clear()
     await show_main_menu(user_id)
-
 
 # ===================== ОБРАБОТЧИКИ ОТВЕТОВ НА НЕДЕЛЬНЫЕ ВОПРОСЫ =====================
 @dp.message(WeeklyPlanState)
