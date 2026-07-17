@@ -45,7 +45,6 @@ DATA_FILE = "data/data.json"
 
 print(f"✅ Бот инициализирован. Админов: {len(ADMIN_IDS)}")
 
-# Создаем бота без прокси
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
