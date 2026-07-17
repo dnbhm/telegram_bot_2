@@ -1535,6 +1535,7 @@ async def cmd_send_review(message: Message, state: FSMContext):
 
 
 # ===================== ХЭНДЛЕРЫ КОМАНД =====================
+# ===================== ХЭНДЛЕРЫ КОМАНД =====================
 @dp.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
