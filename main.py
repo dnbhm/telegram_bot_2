@@ -1787,7 +1787,5 @@ async def main():
     dp.shutdown.register(on_shutdown)
 
     await dp.start_polling(bot)
-
-
 if __name__ == "__main__":
     asyncio.run(main())
