@@ -2,15 +2,13 @@ meta:
   environment: python
   toolchain:
     name: pip
-    version: 3.11
-  build:
-    requirementsPath: requirements.txt
-
+    version: "3.11"
+build:
+  requirementsPath: requirements.txt
+  useCache: true
 run:
-  command: python -u main.py
-  containerPort: 8080
-  ram: 500
-  cpu: 0.25
-  volumes:
-    - name: data
-      path: /app/data
+  scriptName: main.py
+  command: null
+  persistenceMount: /data
+  containerPort: "80"
+  servicePort: "80"

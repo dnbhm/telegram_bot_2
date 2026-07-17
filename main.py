@@ -26,11 +26,14 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.client.session.aiohttp import AiohttpSession
 
-# ===================== НАСТРОЙКА ПУТИ К ДАННЫМ =====================
-# Для Amvera используем /app/data, для локальной разработки - data/
-DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+# Загружаем переменные из .env
+load_dotenv()
 
-# Если папки нет - создаем
+# ===================== НАСТРОЙКА ПУТИ К ДАННЫМ =====================
+# Для Amvera используем /data (как в persistenceMount)
+DATA_DIR = "/data"
+
+# Если папки нет (локальная разработка) - используем data/
 if not os.path.exists(DATA_DIR):
     DATA_DIR = "data"
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -40,9 +43,6 @@ else:
 
 DATA_FILE = os.path.join(DATA_DIR, "data.json")
 print(f"📄 Файл данных: {DATA_FILE}")
-
-# Загружаем переменные из .env
-load_dotenv()
 
 # ===================== КОНФИГУРАЦИЯ =====================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -58,6 +58,7 @@ print(f"✅ Бот инициализирован. Админов: {len(ADMIN_ID
 CACHE_TTL = 30
 SAVE_INTERVAL = 10
 
+# ... остальной код бота ...
 # Тексты для рассылок
 WEEKLY_PLAN_TEXT = (
     "Приветииик🤍 Начинается новая неделя, новые возможности, а это значит, "
