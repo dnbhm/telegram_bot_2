@@ -44,6 +44,10 @@ CACHE_TTL = 30
 SAVE_INTERVAL = 10
 DATA_FILE = "data/data.json"
 
+# ПРИНУДИТЕЛЬНО СОЗДАЕМ ПАПКУ data ПРИ ЗАПУСКЕ
+os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+print(f"✅ Папка data создана: {os.path.dirname(DATA_FILE)}")
+
 # Тексты для рассылок
 WEEKLY_PLAN_TEXT = (
     "Приветииик🤍 Начинается новая неделя, новые возможности, а это значит, "
@@ -71,7 +75,7 @@ WEEKLY_REVIEW_TEXT = (
 # ===================== СОЗДАНИЕ БОТА =====================
 print("🔌 Инициализация бота...")
 
-# ОТКЛЮЧАЕМ ПРОКСИ - он вызывает ошибки!
+# ОТКЛЮЧАЕМ ПРОКСИ
 PROXY_URL = None
 
 if PROXY_URL:
@@ -1761,14 +1765,18 @@ async def admin_callback(callback: CallbackQuery, state: FSMContext):
 
 # ===================== ЗАПУСК =====================
 async def on_startup():
+    print("📂 Загрузка данных...")
     await data_manager.load()
+    print(f"✅ Данные загружены. Пользователей: {len(data_manager.data['users'])}")
+    print("🔄 Запуск автосохранения...")
     asyncio.create_task(data_manager.auto_save_loop())
-    logging.info(f"🚀 Бот запущен! Загружено {len(data_manager.data['users'])} пользователей")
+    print("🚀 Бот запущен!")
 
 
 async def on_shutdown():
+    print("💾 Сохранение данных...")
     await data_manager.save(force=True)
-    logging.info("Бот остановлен, данные сохранены")
+    print("✅ Данные сохранены. Бот остановлен.")
 
 
 async def main():
@@ -1781,6 +1789,7 @@ async def main():
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 
+    print("🔄 Запуск polling...")
     await dp.start_polling(bot)
 
 
