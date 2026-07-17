@@ -1,12 +1,9 @@
 # ===================== САМЫЙ ПЕРВЫЙ ВЫВОД =====================
 import sys
-
-from aiogram.fsm.storage.memory import MemoryStorage
-
 print("=" * 60)
 print("🚀 ЗАПУСК main.py")
 print("=" * 60)
-sys.stdout.flush()  # Принудительно выводим в консоль
+sys.stdout.flush()
 
 import asyncio
 print("✅ asyncio импортирован")
@@ -48,6 +45,22 @@ from aiogram import Bot, Dispatcher, F, types
 print("✅ aiogram импортирован")
 sys.stdout.flush()
 
+from aiogram.filters import Command, CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup  # <-- ЭТО ВАЖНО!
+from aiogram.fsm.storage.memory import MemoryStorage  # <-- ТОЛЬКО ОДИН РАЗ!
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    CallbackQuery,
+    FSInputFile,
+)
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.exceptions import TelegramBadRequest
+
+print("✅ Все импорты завершены")
+sys.stdout.flush()
 # ===================== ПРОВЕРКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ =====================
 print("=" * 60)
 print("🔍 ПРОВЕРКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ")
