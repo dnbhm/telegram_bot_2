@@ -42,8 +42,7 @@ print(f"✅ Бот инициализирован. Админов: {len(ADMIN_ID
 
 CACHE_TTL = 30
 SAVE_INTERVAL = 10
-DATA_FILE = "data.json"
-
+DATA_FILE = "data/data.json"
 # Тексты для рассылок
 WEEKLY_PLAN_TEXT = (
     "Приветииик🤍 Начинается новая неделя, новые возможности, а это значит, "
