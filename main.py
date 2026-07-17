@@ -506,6 +506,9 @@ class DataManager:
 
     async def load(self):
         async with self.lock:
+            # Создаем папку data, если ее нет
+            os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+
             if os.path.exists(DATA_FILE):
                 try:
                     async with aiofiles.open(DATA_FILE, 'r', encoding='utf-8') as f:
@@ -516,6 +519,8 @@ class DataManager:
                     self.data = self._get_default_data()
             else:
                 self.data = self._get_default_data()
+                # Создаем файл при первом запуске
+                await self.save(force=True)
 
             self._ensure_structure()
             self.last_load = time.time()
@@ -560,6 +565,9 @@ class DataManager:
             return
         async with self.lock:
             try:
+                # Создаем папку data, если ее нет
+                os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+
                 async with aiofiles.open(DATA_FILE, 'w', encoding='utf-8') as f:
                     await f.write(json.dumps(self.data, ensure_ascii=False, indent=2))
                 self.last_save = time.time()
@@ -584,10 +592,6 @@ data_manager = DataManager()
 
 
 # ===================== FSM =====================
-class FeedbackState(StatesGroup):
-    waiting = State()
-
-
 class WeeklyPlanState(StatesGroup):
     waiting = State()
 
@@ -647,7 +651,7 @@ def update_lesson_stats(module_id: int, lesson_idx: int, old_answer: Optional[st
         }
     data_manager.data["module_stats"][module_key]["total_answers"] += 1
     data_manager.data["module_stats"][module_key]["answers_by_letter"][new_answer] = \
-    data_manager.data["module_stats"][module_key]["answers_by_letter"].get(new_answer, 0) + 1
+        data_manager.data["module_stats"][module_key]["answers_by_letter"].get(new_answer, 0) + 1
 
 
 def mark_lesson_done(user_id: int, module_id: int, lesson_idx: int):
@@ -1574,20 +1578,27 @@ async def process_answer(callback: CallbackQuery):
         await show_module_lessons(user_id, module_id)
 
 
+# ===================== ОБРАБОТЧИК ФИДБЕКА (БЕЗ FSM) =====================
+
+# Словарь для хранения временных данных фидбека
+feedback_temp = {}
+
+
 @dp.callback_query(F.data.startswith("feedback_yes:"))
-async def feedback_yes(callback: CallbackQuery, state: FSMContext):
+async def feedback_yes(callback: CallbackQuery):
     user = callback.from_user
     init_user(user.id, user.first_name, user.username)
     await data_manager.mark_dirty()
     await callback.answer()
 
     module_id = int(callback.data.split(":")[1])
-    await state.set_state(FeedbackState)
-    await state.update_data(feedback_module=module_id)
+
+    # Сохраняем модуль для фидбека во временный словарь
+    feedback_temp[user.id] = module_id
 
     await edit_main_message(
         user.id,
-        "📝 Напиши свой фидбек по модулю:",
+        "📝 Напиши свой фидбек по модулю в ответ на это сообщение:",
         reply_markup=None
     )
 
@@ -1601,21 +1612,21 @@ async def feedback_no(callback: CallbackQuery):
     await show_main_menu(user.id)
 
 
-# ===================== ОБРАБОТЧИК ФИДБЕКА =====================
-@dp.message(FeedbackState.waiting)  # <-- ВАЖНО: используем .waiting
-async def process_feedback(message: Message, state: FSMContext):
+@dp.message(F.text)
+async def process_feedback(message: Message):
     user_id = message.from_user.id
+
+    # Проверяем, есть ли пользователь в временном словаре
+    if user_id not in feedback_temp:
+        return
+
+    module_id = feedback_temp[user_id]
     user = message.from_user
     init_user(user_id, user.first_name, user.username)
     await data_manager.mark_dirty()
 
-    data_state = await state.get_data()
-    module_id = data_state.get("feedback_module")
-
-    if not module_id:
-        await state.clear()
-        await show_main_menu(user_id)
-        return
+    # Удаляем из временного словаря
+    del feedback_temp[user_id]
 
     module_str = str(module_id)
     if module_str not in data_manager.data["users"][str(user_id)]["feedback"]:
@@ -1635,12 +1646,17 @@ async def process_feedback(message: Message, state: FSMContext):
     )
     await notify_admins(admin_text, delete_after=60)
 
-    thank_message = await message.answer("✨ Спасибо за ответ! 🤍")
-    asyncio.create_task(delete_message_after(message.chat.id, message.message_id, 5))
-    asyncio.create_task(delete_message_after(thank_message.chat.id, thank_message.message_id, 5))
+    # Удаляем сообщение пользователя
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
-    await state.clear()
+    thank_message = await message.answer("✨ Спасибо за ответ! 🤍")
+    asyncio.create_task(delete_message_after(thank_message.chat.id, thank_message.message_id, 3))
+
     await show_main_menu(user_id)
+
 
 # ===================== ОБРАБОТЧИКИ ОТВЕТОВ НА НЕДЕЛЬНЫЕ ВОПРОСЫ =====================
 @dp.message(WeeklyPlanState)
