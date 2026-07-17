@@ -1,10 +1,9 @@
-# ===================== САМЫЙ ПЕРВЫЙ ВЫВОД =====================
 import sys
 print("=" * 60)
 print("🚀 ЗАПУСК main.py")
 print("=" * 60)
 sys.stdout.flush()
-from aiogram.fsm.state import State, StatesGroup  # <-- ЭТО НУЖНО ДОБАВИТЬ!
+
 import asyncio
 print("✅ asyncio импортирован")
 sys.stdout.flush()
@@ -46,9 +45,22 @@ print("✅ aiogram импортирован")
 sys.stdout.flush()
 
 from aiogram.filters import Command, CommandStart
+print("✅ aiogram filters импортированы")
+sys.stdout.flush()
+
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup  # <-- ЭТО ВАЖНО!
-from aiogram.fsm.storage.memory import MemoryStorage  # <-- ТОЛЬКО ОДИН РАЗ!
+print("✅ FSMContext импортирован")
+sys.stdout.flush()
+
+# ===================== ВАЖНО! ДОБАВЬТЕ ЭТУ СТРОКУ =====================
+from aiogram.fsm.state import State, StatesGroup
+print("✅ State, StatesGroup импортированы")
+sys.stdout.flush()
+
+from aiogram.fsm.storage.memory import MemoryStorage
+print("✅ MemoryStorage импортирован")
+sys.stdout.flush()
+
 from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -56,10 +68,20 @@ from aiogram.types import (
     CallbackQuery,
     FSInputFile,
 )
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.exceptions import TelegramBadRequest
+print("✅ aiogram types импортированы")
+sys.stdout.flush()
 
-print("✅ Все импорты завершены")
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+print("✅ InlineKeyboardBuilder импортирован")
+sys.stdout.flush()
+
+from aiogram.exceptions import TelegramBadRequest
+print("✅ TelegramBadRequest импортирован")
+sys.stdout.flush()
+
+print("=" * 60)
+print("✅ ВСЕ ИМПОРТЫ УСПЕШНО ЗАВЕРШЕНЫ")
+print("=" * 60)
 sys.stdout.flush()
 # ===================== ПРОВЕРКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ =====================
 print("=" * 60)
