@@ -40,9 +40,6 @@ if not BOT_TOKEN:
 
 print(f"✅ Бот инициализирован. Админов: {len(ADMIN_IDS)}")
 
-# НАСТРОЙКА HTTP ПРОКСИ (если не нужен - закомментируйте PROXY_URL)
-PROXY_URL = "http://Dx6Lq2:LtaZvL@77.83.116.51:8000"
-
 CACHE_TTL = 30
 SAVE_INTERVAL = 10
 DATA_FILE = "data.json"
@@ -57,7 +54,6 @@ WEEKLY_PLAN_TEXT = (
     "3️⃣ Как ты себя порадуешь за выполнение плана?\n\n"
     "Запиши их здесь, чтобы сделать эту неделю максимально продуктивной и интересной 🪩"
 )
-
 
 WEEKLY_REVIEW_TEXT = (
     "Привееет💫 Конец недели, а это значит, что пора подводить итоги, "
@@ -74,6 +70,9 @@ WEEKLY_REVIEW_TEXT = (
 
 # ===================== СОЗДАНИЕ БОТА =====================
 print("🔌 Инициализация бота...")
+
+# ОТКЛЮЧАЕМ ПРОКСИ - он вызывает ошибки!
+PROXY_URL = None
 
 if PROXY_URL:
     print(f"🔌 Пробую подключиться через прокси: {PROXY_URL.split('@')[-1] if '@' in PROXY_URL else PROXY_URL}")
@@ -116,7 +115,7 @@ MODULES = {
             "Анализ идеи и сценария",
             "Работа со звуком",
             "Цветокоррекция",
-            "Цветокоррекция в DaVinci Resolve"  # Бонус
+            "Цветокоррекция в DaVinci Resolve"
         ]
     },
     4: {
@@ -183,7 +182,7 @@ MODULES = {
             "Построение стратегии"
         ]
     },
-    11: {  # Бонусный модуль
+    11: {
         "name": "Нейросети в монтаже",
         "lessons": [
             "Нейросети в монтаже",
@@ -196,7 +195,6 @@ TOTAL_LESSONS = sum(len(m["lessons"]) for m in MODULES.values())
 
 # ===================== ВОПРОСЫ ПО УРОКАМ =====================
 LESSON_QUESTIONS = {
-    # Модуль 1
     (1, 0): (
         "Что для тебя стало самым полезным открытием в интерфейсе CapCut?\n\n"
         "А) Узнал(а) про скрытые вкладки и фишки, о которых даже не догадывался(ась)\n"
@@ -216,7 +214,6 @@ LESSON_QUESTIONS = {
         "Б) Многое уже знал(а), но пару новых штук открыл(а) для себя\n"
         "В) Пока не изучал(а) глубоко, но сохранил(а) информацию в закладки"
     ),
-    # Модуль 2
     (2, 0): (
         "Что нового или самого ценного ты узнал(а) про законы монтажа?\n\n"
         "А) Впервые услышал(а) про кинематографические правила, теперь буду смотреть на монтаж совсем иначе\n"
@@ -237,7 +234,6 @@ LESSON_QUESTIONS = {
         "Б) Узнал(а) новые приёмы, как убирать паузы и запинки\n"
         "В) Было круто просто помонтировать вместе с тобой, чувствовал(а) поддержку"
     ),
-    # Модуль 3
     (3, 0): (
         "Что из истории кино и классических приёмов ты уже видишь в современных роликах или хочешь применить сама?\n\n"
         "А) теперь я везде замечаю эти приёмы, мир уже не будет прежним\n"
@@ -265,14 +261,13 @@ LESSON_QUESTIONS = {
         "В) Фишка с созданием своих LUT класс, буду сохранять свой стиль\n"
         "Г) Понял(а), что цвет сильно влияет на настроение видео"
     ),
-    (3, 4): (  # Бонус DaVinci
+    (3, 4): (
         "Что нового открыл(а) для себя в DaVinci Resolve?\n\n"
         "А) Перестал(а) бояться профессионального софта, теперь понимаю логику работы\n"
         "Б) Увидел(а), как делать цветокоррекцию на уровне, который раньше казался недосягаемым\n"
         "В) Понял(а), как создавать свои LUT в DaVinci\n"
         "Г) Осознал(а), что CapCut и DaVinci можно комбинировать под разные задачи"
     ),
-    # Модуль 4
     (4, 0): (
         "Что для тебя стало главным открытием про креативность в монтаже?\n\n"
         "А) Понял(а), что креативность – это навык, который можно и нужно развивать\n"
@@ -280,7 +275,6 @@ LESSON_QUESTIONS = {
         "В) Задумался(ась) о своей насмотренности, оказывается, я мало смотрю/анализирую\n"
         "Г) Вдохновился(ась) искать везде вокруг идеи для монтажа"
     ),
-    # Модуль 5
     (5, 0): (
         "Что нового узнал(а) про психологию восприятия вертикального контента?\n\n"
         "А) Понял(а), почему один вертикальный контент залетает, а другой пролистывают через 2 секунды\n"
@@ -307,7 +301,6 @@ LESSON_QUESTIONS = {
         "Б) Трендовые приёмы вдохновили, хочу повторить в своих работах\n"
         "В) Понял(а), что маски — это не просто «вырезать», а мощный творческий инструмент"
     ),
-    # Модуль 6
     (6, 0): (
         "Что из разбора анимационных роликов оказалось самым полезным?\n\n"
         "А) Понял(а), как анализировать анимационный монтаж теперь вижу, что работает, а что нет\n"
@@ -350,7 +343,6 @@ LESSON_QUESTIONS = {
         "В) Осознал(а), что звук в анимации не фон, а часть истории\n"
         "Г) Научился(ась) использовать дополнительные звуки, чтобы оживить анимацию"
     ),
-    # Модуль 7
     (7, 0): (
         "Что в интерфейсе After Effects оказалось самым неожиданным или сложным для понимания?\n\n"
         "А) Понял(а) структуру программы теперь не теряюсь в панелях\n"
@@ -379,7 +371,6 @@ LESSON_QUESTIONS = {
         "В) Вдохновился(ась) масштабом работы\n"
         "Г) Сохранил(а) структуру как пример для своих проектов"
     ),
-    # Модуль 8
     (8, 0): (
         "Что из основ операторского мастерства показалось самым ценным?\n\n"
         "А) Погружение в теорию, теперь понимаю, почему операторские решения работают\n"
@@ -411,7 +402,6 @@ LESSON_QUESTIONS = {
         "Б) Какую петличку/микрофон выбрать\n"
         "В) Как записывать чистый звук в сложных условиях"
     ),
-    # Модуль 9
     (9, 0): (
         "Какой новый способ поиска клиентов для себя открыл(а)?\n\n"
         "А) Узнал(а) про сервисы и площадки, о которых раньше не думал(а)\n"
@@ -445,7 +435,6 @@ LESSON_QUESTIONS = {
         "В) Пересмотрю оформление, чтобы понимать, как подать себя дороже\n"
         "Г) Пойму, каких работ мне не хватает в портфолио, и добавлю их"
     ),
-    # Модуль 10
     (10, 0): (
         "Что из аргументов про личный бренд для монтажёра зашло больше всего?\n\n"
         "А) Понял(а), что личный бренд = социальная значимость и устойчивость\n"
@@ -473,7 +462,6 @@ LESSON_QUESTIONS = {
         "В) Осознал(а), что регулярность важнее, чем один гениальный пост\n"
         "Г) Буду отталкиваться от целей, кого хочу привлечь и зачем"
     ),
-    # Бонусный модуль 11
     (11, 0): (
         "Какая нейросеть из показанных вызвала самый большой интерес и почему?\n\n"
         "А) Для генерации картинок — хочу попробовать создавать уникальные визуалы\n"
@@ -977,7 +965,7 @@ async def show_admin_panel(admin_id: int):
     builder.button(text="💬 Все фидбеки", callback_data="admin:feedbacks:0")
     builder.button(text="📈 Общая статистика", callback_data="admin:overview")
     builder.button(text="📝 Ответы на /daily", callback_data="admin:daily_answers:0")
-    builder.button(text="📨 Рассылка", callback_data="admin:mailing")  # NEW
+    builder.button(text="📨 Рассылка", callback_data="admin:mailing")
     builder.adjust(1)
 
     await edit_admin_message(
@@ -987,7 +975,6 @@ async def show_admin_panel(admin_id: int):
     )
 
 
-# NEW: Меню рассылки
 async def show_mailing_menu(admin_id: int):
     builder = InlineKeyboardBuilder()
     builder.button(text="📝 Начало недели", callback_data="admin:mailing:plan")
@@ -1010,7 +997,6 @@ async def send_weekly_plan_manual(admin_id: int, status_msg: Message):
     for idx, user_id_str in enumerate(users):
         user_id = int(user_id_str)
         try:
-            # Убираем скобки - передаем класс, а не экземпляр
             await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyPlanState)
             await bot.send_message(user_id, WEEKLY_PLAN_TEXT)
             sent += 1
@@ -1037,7 +1023,6 @@ async def send_weekly_review_manual(admin_id: int, status_msg: Message):
     for idx, user_id_str in enumerate(users):
         user_id = int(user_id_str)
         try:
-            # Убираем скобки - передаем класс, а не экземпляр
             await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyReviewState)
             await bot.send_message(user_id, WEEKLY_REVIEW_TEXT)
             sent += 1
@@ -1362,14 +1347,12 @@ async def show_overview(admin_id: int):
 
 
 async def show_all_daily_answers(admin_id: int, page: int = 0):
-    # Для простоты показываем все ответы на /daily из админки
-    # Но поскольку у нас нет команды /daily, оставим заглушку
     builder = InlineKeyboardBuilder()
     builder.button(text="🔙 Назад в админку", callback_data="admin:back")
     await edit_admin_message(admin_id, "📭 Нет ответов на /daily", builder.as_markup())
 
 
-# ===================== НОВЫЕ КОМАНДЫ ДЛЯ РАССЫЛОК (ТОЛЬКО ДЛЯ АДМИНОВ) =====================
+# ===================== КОМАНДЫ ДЛЯ АДМИНОВ =====================
 
 @dp.message(Command("test_plan"))
 async def cmd_test_plan(message: Message, state: FSMContext):
@@ -1409,20 +1392,18 @@ async def cmd_send_plan(message: Message, state: FSMContext):
     for idx, user_id_str in enumerate(users):
         user_id = int(user_id_str)
         try:
-            # Убираем скобки
             await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyPlanState)
             await bot.send_message(user_id, WEEKLY_PLAN_TEXT)
             sent += 1
-            logging.info(f"Массовая рассылка (план) пользователю {user_id}")
         except Exception as e:
             failed += 1
-            logging.error(f"Ошибка массовой рассылки (план) {user_id}: {e}")
+            logging.error(f"Ошибка рассылки (план) {user_id}: {e}")
 
         if idx < len(users) - 1:
             await asyncio.sleep(0.5)
 
     await status_msg.edit_text(
-        f"✅ Массовая рассылка «Начало недели» завершена!\n"
+        f"✅ Рассылка «Начало недели» завершена!\n"
         f"📤 Отправлено: {sent}\n"
         f"❌ Ошибок: {failed}"
     )
@@ -1444,23 +1425,22 @@ async def cmd_send_review(message: Message, state: FSMContext):
     for idx, user_id_str in enumerate(users):
         user_id = int(user_id_str)
         try:
-            # Убираем скобки
             await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyReviewState)
             await bot.send_message(user_id, WEEKLY_REVIEW_TEXT)
             sent += 1
-            logging.info(f"Массовая рассылка (итог) пользователю {user_id}")
         except Exception as e:
             failed += 1
-            logging.error(f"Ошибка массовой рассылки (итог) {user_id}: {e}")
+            logging.error(f"Ошибка рассылки (итог) {user_id}: {e}")
 
         if idx < len(users) - 1:
             await asyncio.sleep(0.5)
 
     await status_msg.edit_text(
-        f"✅ Массовая рассылка «Конец недели» завершена!\n"
+        f"✅ Рассылка «Конец недели» завершена!\n"
         f"📤 Отправлено: {sent}\n"
         f"❌ Ошибок: {failed}"
     )
+
 
 # ===================== ХЭНДЛЕРЫ КОМАНД =====================
 @dp.message(CommandStart())
@@ -1471,7 +1451,6 @@ async def cmd_start(message: Message, state: FSMContext):
     init_user(user.id, user.first_name, user.username)
     user_data = data_manager.data["users"][str(user.id)]
 
-    # Отправка кружка
     if not user_data.get("video_sent", False):
         try:
             video_note_path = "video_notes/welcome_2.mp4"
@@ -1603,7 +1582,7 @@ async def feedback_yes(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
     module_id = int(callback.data.split(":")[1])
-    await state.set_state(FeedbackState.waiting)
+    await state.set_state(FeedbackState)
     await state.update_data(feedback_module=module_id)
 
     await edit_main_message(
@@ -1623,7 +1602,7 @@ async def feedback_no(callback: CallbackQuery):
 
 
 # ===================== ОБРАБОТЧИК ФИДБЕКА =====================
-@dp.message(FeedbackState.waiting)
+@dp.message(FeedbackState)
 async def process_feedback(message: Message, state: FSMContext):
     user_id = message.from_user.id
     user = message.from_user
@@ -1665,7 +1644,7 @@ async def process_feedback(message: Message, state: FSMContext):
 
 
 # ===================== ОБРАБОТЧИКИ ОТВЕТОВ НА НЕДЕЛЬНЫЕ ВОПРОСЫ =====================
-@dp.message(WeeklyPlanState)  # Без скобок!
+@dp.message(WeeklyPlanState)
 async def process_weekly_plan(message: Message, state: FSMContext):
     user_id = message.from_user.id
     user = message.from_user
@@ -1690,7 +1669,7 @@ async def process_weekly_plan(message: Message, state: FSMContext):
     await state.clear()
 
 
-@dp.message(WeeklyReviewState)  # Без скобок!
+@dp.message(WeeklyReviewState)
 async def process_weekly_review(message: Message, state: FSMContext):
     user_id = message.from_user.id
     user = message.from_user
@@ -1713,6 +1692,7 @@ async def process_weekly_review(message: Message, state: FSMContext):
     asyncio.create_task(delete_message_after(thank.chat.id, thank.message_id, 2))
 
     await state.clear()
+
 
 # ===================== АДМИНСКИЕ CALLBACK =====================
 @dp.callback_query(F.data.startswith("admin:"))
