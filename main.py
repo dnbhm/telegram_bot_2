@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import sys
 import time
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
@@ -24,16 +25,38 @@ from aiogram.types import (
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 
+# ===================== ПРОВЕРКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ =====================
+print("=" * 60)
+print("🔍 ПРОВЕРКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ")
+print("=" * 60)
+
 # Загружаем переменные из .env
 load_dotenv()
 
-# ===================== КОНФИГУРАЦИЯ =====================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
+ADMIN_IDS_RAW = os.getenv("ADMIN_IDS", "")
 VIDEO_NOTE_ID = os.getenv("VIDEO_NOTE_ID")
 
+print(f"BOT_TOKEN: {'✅ НАЙДЕН' if BOT_TOKEN else '❌ НЕ НАЙДЕН'}")
+if BOT_TOKEN:
+    print(f"BOT_TOKEN (первые 10 символов): {BOT_TOKEN[:10]}...")
+print(f"ADMIN_IDS: {ADMIN_IDS_RAW}")
+print(f"VIDEO_NOTE_ID: {'✅ НАЙДЕН' if VIDEO_NOTE_ID else '❌ НЕ НАЙДЕН'}")
+
 if not BOT_TOKEN:
-    raise ValueError("❌ BOT_TOKEN не найден в .env файле!")
+    print("❌ КРИТИЧЕСКАЯ ОШИБКА: BOT_TOKEN не найден!")
+    print("Добавьте переменную BOT_TOKEN в настройках Amvera")
+    sys.exit(1)
+
+print("✅ Все переменные найдены!")
+print("=" * 60)
+
+# ===================== КОНФИГУРАЦИЯ =====================
+ADMIN_IDS = [int(x.strip()) for x in ADMIN_IDS_RAW.split(",") if x.strip()]
+VIDEO_NOTE_ID = os.getenv("VIDEO_NOTE_ID")
+
+if not ADMIN_IDS:
+    print("⚠️ ВНИМАНИЕ: ADMIN_IDS не задан! Бот будет работать без админов.")
 
 # Отключаем прокси
 PROXY_URL = None
@@ -45,8 +68,38 @@ DATA_FILE = "data/data.json"
 
 print(f"✅ Бот инициализирован. Админов: {len(ADMIN_IDS)}")
 
+# Создаем папку data
+os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+print("✅ Папка data создана/существует")
+
+# Создаем бота
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
+print("✅ Бот создан")
+
+# ===================== ТЕКСТЫ РАССЫЛОК =====================
+WEEKLY_PLAN_TEXT = (
+    "Приветииик🤍 Начинается новая неделя, новые возможности, а это значит, "
+    "что самое время поставить задачи и цели, чтобы держать фокус ⭐️\n\n"
+    "Ответь на несколько вопросов:\n\n"
+    "1️⃣ Какие у тебя цели на эту неделю?\n"
+    "2️⃣ Что ты хочешь изучить, в чём разобраться или какой навык прокачать?\n"
+    "3️⃣ Как ты себя порадуешь за выполнение плана?\n\n"
+    "Запиши их здесь, чтобы сделать эту неделю максимально продуктивной и интересной 🪩"
+)
+
+WEEKLY_REVIEW_TEXT = (
+    "Привееет💫 Конец недели, а это значит, что пора подводить итоги, "
+    "какой путь ты прошёл за эти дни 📝\n\n"
+    "Ответь на несколько вопросов:\n\n"
+    "1️⃣ Что из запланированного получилось?\n"
+    "2️⃣ За что ты себя можешь похвалить?\n"
+    "3️⃣ А может быть, случилось что-то неожиданное, чего ты не планировал(а), "
+    "но оно того стоило?\n\n"
+    "Запиши свои победы и мысли✨\n\n"
+    "Ты молодец уже только потому, что не останавливаешься, горжусь тобой🤍\n"
+    "Отдыхай и набирайся сил, скоро тебя ждёт новая неделя⭐️"
+)
 
 # ===================== СТРУКТУРА МОДУЛЕЙ =====================
 MODULES = {
