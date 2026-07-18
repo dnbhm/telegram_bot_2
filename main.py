@@ -1535,7 +1535,6 @@ async def cmd_send_review(message: Message, state: FSMContext):
 
 
 # ===================== ХЭНДЛЕРЫ КОМАНД =====================
-# ===================== ХЭНДЛЕРЫ КОМАНД =====================
 @dp.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
@@ -1545,49 +1544,52 @@ async def cmd_start(message: Message, state: FSMContext):
     user_data = data_manager.data["users"][str(user.id)]
 
     print(f"📩 Пользователь {user.id} (@{user.username}) запустил бота", flush=True)
-    print(f"📹 video_sent: {user_data.get('video_sent', False)}", flush=True)
+    print(f"🎬 Отправка кружка пользователю {user.id}...", flush=True)
 
-    if not user_data.get("video_sent", False):
-        print(f"🎬 Отправка кружка пользователю {user.id}...", flush=True)
+    # Отправляем кружок (как в старом боте)
+    try:
+        video_note_path = "video_notes/welcome_2.mp4"
 
-        try:
-            # Сначала пробуем отправить по file_id (если есть)
-            if VIDEO_NOTE_FILE_ID:
-                print(f"📤 Отправка по file_id: {VIDEO_NOTE_FILE_ID[:20]}...", flush=True)
-                await bot.send_video_note(
-                    chat_id=user.id,
-                    video_note=VIDEO_NOTE_FILE_ID
-                )
-                user_data["video_sent"] = True
-                await data_manager.mark_dirty()
-                print(f"✅ Кружок отправлен пользователю {user.id} по file_id", flush=True)
-                await asyncio.sleep(0.5)
+        if os.path.exists(video_note_path):
+            print(f"✅ Файл найден: {video_note_path}", flush=True)
+
+            # Создаем InputFile для отправки
+            video_note = FSInputFile(video_note_path)
+
+            # Отправляем видео-кружок
+            await bot.send_video_note(
+                chat_id=user.id,
+                video_note=video_note,
+                duration=30  # Длительность в секундах
+            )
+
+            user_data["video_sent"] = True
+            await data_manager.mark_dirty()
+            print(f"✅ Кружок успешно отправлен пользователю {user.id}", flush=True)
+            await asyncio.sleep(0.5)
+        else:
+            print(f"❌ Файл НЕ НАЙДЕН: {video_note_path}", flush=True)
+
+            # Проверяем содержимое папки
+            if os.path.exists("video_notes"):
+                print(f"📁 Содержимое video_notes: {os.listdir('video_notes')}", flush=True)
             else:
-                # Если file_id нет - пробуем файл
-                video_note_path = "video_notes/welcome_2.mp4"
-                print(f"📤 Отправка из файла: {video_note_path}", flush=True)
+                print("📁 Папка video_notes не существует", flush=True)
 
-                if os.path.exists(video_note_path):
-                    print(f"✅ Файл найден, размер: {os.path.getsize(video_note_path)} байт", flush=True)
-                    video_note = FSInputFile(video_note_path)
-                    await bot.send_video_note(chat_id=user.id, video_note=video_note)
-                    user_data["video_sent"] = True
-                    await data_manager.mark_dirty()
-                    print(f"✅ Кружок отправлен пользователю {user.id} из файла", flush=True)
-                    await asyncio.sleep(0.5)
-                else:
-                    print(f"❌ Файл {video_note_path} не найден!", flush=True)
-                    await message.answer("🎬 *Видео не найдено, но урок доступен по кнопке ниже!*",
-                                         parse_mode="Markdown")
-        except Exception as e:
-            print(f"❌ Ошибка отправки кружка пользователю {user.id}: {e}", flush=True)
-            logging.error(f"Ошибка отправки кружка: {e}")
-            await message.answer("❌ *Ошибка при отправке видео. Попробуйте позже.*", parse_mode="Markdown")
-    else:
-        print(f"⏭️ Пропуск отправки кружка (уже отправлен) для {user.id}", flush=True)
+            await message.answer(
+                "🎬 *Видео не найдено. Проверьте наличие файла welcome_2.mp4 в папке video_notes*\n\n"
+                "Но урок доступен по кнопке ниже! 👇",
+                parse_mode="Markdown"
+            )
+    except Exception as e:
+        print(f"❌ ОШИБКА отправки кружка: {e}", flush=True)
+        logging.error(f"Ошибка отправки кружка: {e}")
+        await message.answer(
+            "❌ *Ошибка при отправке видео. Попробуйте позже.*",
+            parse_mode="Markdown"
+        )
 
     await show_main_menu(user.id)
-
 
 @dp.message(Command("stats"))
 async def cmd_stats(message: Message, state: FSMContext):
