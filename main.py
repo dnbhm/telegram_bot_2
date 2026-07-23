@@ -24,7 +24,7 @@ from aiogram.types import (
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.client.default import DefaultBotProperties
 
 # ===================== ПРИНУДИТЕЛЬНЫЙ ВЫВОД =====================
 print("=" * 60, flush=True)
@@ -94,22 +94,15 @@ WEEKLY_REVIEW_TEXT = (
 # ===================== СОЗДАНИЕ БОТА =====================
 print("🔌 Инициализация бота...", flush=True)
 
-PROXY_URL = None
-
-if PROXY_URL:
-    print(f"🔌 Пробую подключиться через прокси: {PROXY_URL.split('@')[-1] if '@' in PROXY_URL else PROXY_URL}",
-          flush=True)
-    try:
-        session = AiohttpSession(proxy=PROXY_URL, timeout=30)
-        bot = Bot(token=BOT_TOKEN, session=session)
-        print("✅ Бот создан с прокси", flush=True)
-    except Exception as e:
-        print(f"❌ Ошибка создания бота с прокси: {e}", flush=True)
-        print("🔄 Запускаю без прокси...", flush=True)
-        bot = Bot(token=BOT_TOKEN)
-else:
-    bot = Bot(token=BOT_TOKEN)
-    print("✅ Бот создан без прокси", flush=True)
+# Создаем бота с увеличенным таймаутом
+bot = Bot(
+    token=BOT_TOKEN,
+    default=DefaultBotProperties(
+        parse_mode="HTML",
+        request_timeout=180
+    )
+)
+print("✅ Бот создан с таймаутом 180 сек", flush=True)
 
 dp = Dispatcher(storage=MemoryStorage())
 
@@ -1063,8 +1056,39 @@ async def show_mailing_menu(admin_id: int):
     )
 
 
-async def send_weekly_plan_manual(admin_id: int, status_msg: Message):
-    # Получаем только реальных пользователей (не админов)
+# ===================== КОМАНДЫ ДЛЯ АДМИНОВ (БЕЗ FSM) =====================
+
+@dp.message(Command("test_plan"))
+async def cmd_test_plan(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("❌ У вас нет прав для использования этой команды")
+        return
+
+    await state.clear()
+    await message.answer(WEEKLY_PLAN_TEXT)
+    await message.answer("✅ Тестовое сообщение (план) отправлено вам.")
+
+
+@dp.message(Command("test_review"))
+async def cmd_test_review(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("❌ У вас нет прав для использования этой команды")
+        return
+
+    await state.clear()
+    await message.answer(WEEKLY_REVIEW_TEXT)
+    await message.answer("✅ Тестовое сообщение (итог) отправлено вам.")
+
+
+@dp.message(Command("send_plan"))
+async def cmd_send_plan(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("❌ У вас нет прав для использования этой команды")
+        return
+
+    await state.clear()
+    status_msg = await message.answer("🔄 Начинаю массовую рассылку (план)...")
+
     users = list(data_manager.get_real_users().keys())
     sent = 0
     failed = 0
@@ -1072,16 +1096,23 @@ async def send_weekly_plan_manual(admin_id: int, status_msg: Message):
     for idx, user_id_str in enumerate(users):
         user_id = int(user_id_str)
         try:
-            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyPlanState)
             await bot.send_message(user_id, WEEKLY_PLAN_TEXT)
             sent += 1
-            logging.info(f"Ручная рассылка (план) пользователю {user_id}")
+            await asyncio.sleep(0.3)
         except Exception as e:
             failed += 1
-            logging.error(f"Ошибка ручной рассылки (план) {user_id}: {e}")
+            logging.error(f"Ошибка рассылки (план) {user_id}: {e}")
 
-        if idx < len(users) - 1:
-            await asyncio.sleep(0.5)
+        if idx % 10 == 0 and idx > 0:
+            try:
+                await status_msg.edit_text(
+                    f"🔄 Рассылка плана...\n"
+                    f"📤 Отправлено: {sent}\n"
+                    f"❌ Ошибок: {failed}\n"
+                    f"📊 Прогресс: {idx + 1}/{len(users)}"
+                )
+            except Exception:
+                pass
 
     await status_msg.edit_text(
         f"✅ Рассылка «Начало недели» завершена!\n"
@@ -1090,8 +1121,15 @@ async def send_weekly_plan_manual(admin_id: int, status_msg: Message):
     )
 
 
-async def send_weekly_review_manual(admin_id: int, status_msg: Message):
-    # Получаем только реальных пользователей (не админов)
+@dp.message(Command("send_review"))
+async def cmd_send_review(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("❌ У вас нет прав для использования этой команды")
+        return
+
+    await state.clear()
+    status_msg = await message.answer("🔄 Начинаю массовую рассылку (итог)...")
+
     users = list(data_manager.get_real_users().keys())
     sent = 0
     failed = 0
@@ -1099,16 +1137,23 @@ async def send_weekly_review_manual(admin_id: int, status_msg: Message):
     for idx, user_id_str in enumerate(users):
         user_id = int(user_id_str)
         try:
-            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyReviewState)
             await bot.send_message(user_id, WEEKLY_REVIEW_TEXT)
             sent += 1
-            logging.info(f"Ручная рассылка (итог) пользователю {user_id}")
+            await asyncio.sleep(0.3)
         except Exception as e:
             failed += 1
-            logging.error(f"Ошибка ручной рассылки (итог) {user_id}: {e}")
+            logging.error(f"Ошибка рассылки (итог) {user_id}: {e}")
 
-        if idx < len(users) - 1:
-            await asyncio.sleep(0.5)
+        if idx % 10 == 0 and idx > 0:
+            try:
+                await status_msg.edit_text(
+                    f"🔄 Рассылка итогов...\n"
+                    f"📤 Отправлено: {sent}\n"
+                    f"❌ Ошибок: {failed}\n"
+                    f"📊 Прогресс: {idx + 1}/{len(users)}"
+                )
+            except Exception:
+                pass
 
     await status_msg.edit_text(
         f"✅ Рассылка «Конец недели» завершена!\n"
@@ -1117,8 +1162,296 @@ async def send_weekly_review_manual(admin_id: int, status_msg: Message):
     )
 
 
+# ===================== ХЭНДЛЕРЫ КОМАНД =====================
+@dp.message(CommandStart())
+async def cmd_start(message: Message, state: FSMContext):
+    await state.clear()
+    user = message.from_user
+    await data_manager.get()
+    init_user(user.id, user.first_name, user.username)
+    user_data = data_manager.data["users"][str(user.id)]
+
+    print(f"📩 Пользователь {user.id} (@{user.username}) запустил бота", flush=True)
+    print(f"🎬 Отправка кружка пользователю {user.id}...", flush=True)
+
+    try:
+        video_note_path = "video_notes/welcome_2.mp4"
+
+        if os.path.exists(video_note_path):
+            print(f"✅ Файл найден: {video_note_path}", flush=True)
+            video_note = FSInputFile(video_note_path)
+            await bot.send_video_note(
+                chat_id=user.id,
+                video_note=video_note,
+                duration=30
+            )
+            user_data["video_sent"] = True
+            await data_manager.mark_dirty()
+            print(f"✅ Кружок успешно отправлен пользователю {user.id}", flush=True)
+            await asyncio.sleep(0.5)
+        else:
+            print(f"❌ Файл НЕ НАЙДЕН: {video_note_path}", flush=True)
+            if os.path.exists("video_notes"):
+                print(f"📁 Содержимое video_notes: {os.listdir('video_notes')}", flush=True)
+            else:
+                print("📁 Папка video_notes не существует", flush=True)
+            await message.answer(
+                "🎬 *Видео не найдено. Проверьте наличие файла welcome_2.mp4 в папке video_notes*\n\n"
+                "Но урок доступен по кнопке ниже! 👇",
+                parse_mode="Markdown"
+            )
+    except Exception as e:
+        print(f"❌ ОШИБКА отправки кружка: {e}", flush=True)
+        logging.error(f"Ошибка отправки кружка: {e}")
+        await message.answer(
+            "❌ *Ошибка при отправке видео. Попробуйте позже.*",
+            parse_mode="Markdown"
+        )
+
+    await show_main_menu(user.id)
+
+
+@dp.message(Command("stats"))
+async def cmd_stats(message: Message, state: FSMContext):
+    if message.from_user.id not in ADMIN_IDS:
+        await message.answer("❌ У вас нет прав")
+        return
+
+    await state.clear()
+    await data_manager.get()
+
+    user_id_str = str(message.from_user.id)
+    if user_id_str not in data_manager.data["users"]:
+        data_manager.data["users"][user_id_str] = {
+            "first_name": message.from_user.first_name,
+            "username": message.from_user.username,
+            "first_seen": int(time.time()),
+            "last_active": int(time.time()),
+            "is_admin": True
+        }
+        await data_manager.mark_dirty()
+
+    await show_admin_panel(message.from_user.id)
+
+
+# ===================== ПОЛЬЗОВАТЕЛЬСКИЕ CALLBACK =====================
+@dp.callback_query(F.data == "back_to_modules")
+async def back_to_modules(callback: CallbackQuery):
+    user = callback.from_user
+    init_user(user.id, user.first_name, user.username)
+    await data_manager.mark_dirty()
+    await callback.answer()
+    await show_main_menu(user.id)
+
+
+@dp.callback_query(F.data == "my_progress")
+async def my_progress(callback: CallbackQuery):
+    user = callback.from_user
+    init_user(user.id, user.first_name, user.username)
+    await data_manager.mark_dirty()
+    await callback.answer()
+    await show_my_progress(user.id)
+
+
+@dp.callback_query(F.data == "my_feedbacks")
+async def my_feedbacks(callback: CallbackQuery):
+    user = callback.from_user
+    init_user(user.id, user.first_name, user.username)
+    await data_manager.mark_dirty()
+    await callback.answer()
+    await show_my_feedbacks(user.id)
+
+
+@dp.callback_query(F.data.startswith("my_goals:"))
+async def my_goals(callback: CallbackQuery):
+    user = callback.from_user
+    init_user(user.id, user.first_name, user.username)
+    await data_manager.mark_dirty()
+    await callback.answer()
+    page = int(callback.data.split(":")[1])
+    await show_my_goals(user.id, page)
+
+
+@dp.callback_query(F.data.startswith("module:"))
+async def process_module(callback: CallbackQuery):
+    user = callback.from_user
+    init_user(user.id, user.first_name, user.username)
+    await data_manager.mark_dirty()
+    await callback.answer()
+
+    module_id = int(callback.data.split(":")[1])
+    data_manager.data["users"][str(user.id)]["current_module"] = module_id
+    await data_manager.mark_dirty()
+    await show_module_lessons(user.id, module_id)
+
+
+@dp.callback_query(F.data.startswith("lesson:"))
+async def process_lesson(callback: CallbackQuery):
+    user = callback.from_user
+    init_user(user.id, user.first_name, user.username)
+    await data_manager.mark_dirty()
+    await callback.answer()
+
+    _, module_id_str, lesson_idx_str = callback.data.split(":")
+    module_id = int(module_id_str)
+    lesson_idx = int(lesson_idx_str)
+
+    data_manager.data["users"][str(user.id)]["current_module"] = module_id
+    data_manager.data["users"][str(user.id)]["current_lesson"] = lesson_idx
+    await data_manager.mark_dirty()
+    await show_lesson_question(user.id, module_id, lesson_idx)
+
+
+@dp.callback_query(F.data.startswith("answer:"))
+async def process_answer(callback: CallbackQuery):
+    await callback.answer()
+    _, module_id_str, lesson_idx_str, letter = callback.data.split(":")
+    module_id = int(module_id_str)
+    lesson_idx = int(lesson_idx_str)
+    user_id = callback.from_user.id
+
+    user = callback.from_user
+    init_user(user_id, user.first_name, user.username)
+
+    answer_key = f"module{module_id}_lesson{lesson_idx}"
+    old_answer = data_manager.data["users"][str(user_id)]["answers"].get(answer_key)
+
+    update_lesson_stats(module_id, lesson_idx, old_answer, letter)
+    data_manager.data["users"][str(user_id)]["answers"][answer_key] = letter
+    mark_lesson_done(user_id, module_id, lesson_idx)
+    await data_manager.mark_dirty()
+
+    if is_module_completed(user_id, module_id):
+        await show_module_completion(user_id, module_id)
+    else:
+        await show_module_lessons(user_id, module_id)
+
+
+# ===================== ОБРАБОТЧИК ФИДБЕКА (БЕЗ FSM) =====================
+
+feedback_temp = {}
+
+
+@dp.callback_query(F.data.startswith("feedback_yes:"))
+async def feedback_yes(callback: CallbackQuery):
+    user = callback.from_user
+    init_user(user.id, user.first_name, user.username)
+    await data_manager.mark_dirty()
+    await callback.answer()
+
+    module_id = int(callback.data.split(":")[1])
+    feedback_temp[user.id] = module_id
+
+    await edit_main_message(
+        user.id,
+        "📝 Напиши свой фидбек по модулю в ответ на это сообщение:",
+        reply_markup=None
+    )
+
+
+@dp.callback_query(F.data.startswith("feedback_no:"))
+async def feedback_no(callback: CallbackQuery):
+    user = callback.from_user
+    init_user(user.id, user.first_name, user.username)
+    await data_manager.mark_dirty()
+    await callback.answer()
+    await show_main_menu(user.id)
+
+
+@dp.message(F.text)
+async def process_feedback(message: Message):
+    user_id = message.from_user.id
+
+    if user_id not in feedback_temp:
+        return
+
+    module_id = feedback_temp[user_id]
+    user = message.from_user
+    init_user(user_id, user.first_name, user.username)
+    await data_manager.mark_dirty()
+
+    del feedback_temp[user_id]
+
+    module_str = str(module_id)
+    if module_str not in data_manager.data["users"][str(user_id)]["feedback"]:
+        data_manager.data["users"][str(user_id)]["feedback"][module_str] = []
+
+    data_manager.data["users"][str(user_id)]["feedback"][module_str].append(message.text)
+    await data_manager.mark_dirty()
+
+    user_info = f"{message.from_user.first_name} (@{message.from_user.username})"
+    module_name = MODULES[module_id]['name']
+    admin_text = (
+        f"💬 Новый фидбек!\n\n"
+        f"👤 {user_info}\n"
+        f"🆔 {user_id}\n"
+        f"📌 Модуль {module_id}. {module_name}\n\n"
+        f"💭 {message.text}"
+    )
+    await notify_admins(admin_text, delete_after=60)
+
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+    thank_message = await message.answer("✨ Спасибо за ответ! 🤍")
+    asyncio.create_task(delete_message_after(thank_message.chat.id, thank_message.message_id, 3))
+
+    await show_main_menu(user_id)
+
+
+# ===================== АДМИНСКИЕ CALLBACK =====================
+@dp.callback_query(F.data.startswith("admin:"))
+async def admin_callback(callback: CallbackQuery, state: FSMContext):
+    await callback.answer()
+    if callback.from_user.id not in ADMIN_IDS:
+        return
+
+    user = callback.from_user
+    init_user(user.id, user.first_name, user.username)
+    await data_manager.mark_dirty()
+
+    parts = callback.data.split(":")
+    action = parts[1]
+
+    if action == "back":
+        await show_admin_panel(callback.from_user.id)
+    elif action == "mailing":
+        await show_mailing_menu(callback.from_user.id)
+    elif action == "mailing:plan":
+        status_msg = await bot.send_message(callback.from_user.id, "🔄 Начинаю рассылку «Начало недели»...")
+        await cmd_send_plan(callback.message, state)  # Переиспользуем команду
+    elif action == "mailing:review":
+        status_msg = await bot.send_message(callback.from_user.id, "🔄 Начинаю рассылку «Конец недели»...")
+        await cmd_send_review(callback.message, state)  # Переиспользуем команду
+    elif action == "users":
+        page = int(parts[2]) if len(parts) > 2 else 0
+        await show_users_list(callback.from_user.id, page)
+    elif action == "user":
+        target_id = parts[2]
+        await show_user_detail(callback.from_user.id, target_id)
+    elif action == "user_answers":
+        target_id = parts[2]
+        page = int(parts[3])
+        await show_user_answers(callback.from_user.id, target_id, page)
+    elif action == "user_goals":
+        target_id = parts[2]
+        page = int(parts[3])
+        await show_user_goals(callback.from_user.id, target_id, page)
+    elif action == "module_stats":
+        await show_module_stats(callback.from_user.id)
+    elif action == "feedbacks":
+        page = int(parts[2]) if len(parts) > 2 else 0
+        await show_feedbacks(callback.from_user.id, page)
+    elif action == "overview":
+        await show_overview(callback.from_user.id)
+    elif action == "daily_answers":
+        page = int(parts[2]) if len(parts) > 2 else 0
+        await show_all_daily_answers(callback.from_user.id, page)
+
+
 async def show_users_list(admin_id: int, page: int = 0):
-    # Получаем только реальных пользователей (не админов)
     all_users = data_manager.data["users"].items()
     users = [(uid, data) for uid, data in all_users if not data.get("is_admin", False)]
     users.sort(key=lambda x: x[1].get("last_active", 0), reverse=True)
@@ -1182,7 +1515,6 @@ async def show_user_detail(admin_id: int, target_user_id: str):
 
     u = data_manager.data["users"][target_user_id]
 
-    # Если это админ - не показываем
     if u.get("is_admin", False):
         await edit_admin_message(admin_id, "❌ Это админ, данные скрыты")
         return
@@ -1345,7 +1677,6 @@ async def show_module_stats(admin_id: int):
 async def show_feedbacks(admin_id: int, page: int = 0):
     all_feedbacks = []
     for user_id_str, user_data in data_manager.data["users"].items():
-        # Пропускаем админов
         if user_data.get("is_admin", False):
             continue
         feedbacks = user_data.get("feedback", {})
@@ -1400,7 +1731,6 @@ async def show_feedbacks(admin_id: int, page: int = 0):
 
 
 async def show_overview(admin_id: int):
-    # Получаем только реальных пользователей (не админов)
     real_users = [u for u in data_manager.data["users"].values() if not u.get("is_admin", False)]
 
     total_users = len(real_users)
@@ -1440,453 +1770,6 @@ async def show_all_daily_answers(admin_id: int, page: int = 0):
     builder = InlineKeyboardBuilder()
     builder.button(text="🔙 Назад в админку", callback_data="admin:back")
     await edit_admin_message(admin_id, "📭 Нет ответов на /daily", builder.as_markup())
-
-
-# ===================== КОМАНДЫ ДЛЯ АДМИНОВ =====================
-
-@dp.message(Command("test_plan"))
-async def cmd_test_plan(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("❌ У вас нет прав для использования этой команды")
-        return
-
-    await state.clear()
-    await message.answer(WEEKLY_PLAN_TEXT)
-    await message.answer("✅ Тестовое сообщение (план) отправлено вам.")
-
-
-@dp.message(Command("test_review"))
-async def cmd_test_review(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("❌ У вас нет прав для использования этой команды")
-        return
-
-    await state.clear()
-    await message.answer(WEEKLY_REVIEW_TEXT)
-    await message.answer("✅ Тестовое сообщение (итог) отправлено вам.")
-
-
-@dp.message(Command("send_plan"))
-async def cmd_send_plan(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("❌ У вас нет прав для использования этой команды")
-        return
-
-    await state.clear()
-    status_msg = await message.answer("🔄 Начинаю массовую рассылку (план)...")
-
-    # Получаем только реальных пользователей (не админов)
-    users = list(data_manager.get_real_users().keys())
-    sent = 0
-    failed = 0
-
-    for idx, user_id_str in enumerate(users):
-        user_id = int(user_id_str)
-        try:
-            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyPlanState)
-            await bot.send_message(user_id, WEEKLY_PLAN_TEXT)
-            sent += 1
-        except Exception as e:
-            failed += 1
-            logging.error(f"Ошибка рассылки (план) {user_id}: {e}")
-
-        if idx < len(users) - 1:
-            await asyncio.sleep(0.5)
-
-    await status_msg.edit_text(
-        f"✅ Рассылка «Начало недели» завершена!\n"
-        f"📤 Отправлено: {sent}\n"
-        f"❌ Ошибок: {failed}"
-    )
-
-
-@dp.message(Command("send_review"))
-async def cmd_send_review(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("❌ У вас нет прав для использования этой команды")
-        return
-
-    await state.clear()
-    status_msg = await message.answer("🔄 Начинаю массовую рассылку (итог)...")
-
-    # Получаем только реальных пользователей (не админов)
-    users = list(data_manager.get_real_users().keys())
-    sent = 0
-    failed = 0
-
-    for idx, user_id_str in enumerate(users):
-        user_id = int(user_id_str)
-        try:
-            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyReviewState)
-            await bot.send_message(user_id, WEEKLY_REVIEW_TEXT)
-            sent += 1
-        except Exception as e:
-            failed += 1
-            logging.error(f"Ошибка рассылки (итог) {user_id}: {e}")
-
-        if idx < len(users) - 1:
-            await asyncio.sleep(0.5)
-
-    await status_msg.edit_text(
-        f"✅ Рассылка «Конец недели» завершена!\n"
-        f"📤 Отправлено: {sent}\n"
-        f"❌ Ошибок: {failed}"
-    )
-
-
-# ===================== ХЭНДЛЕРЫ КОМАНД =====================
-@dp.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext):
-    await state.clear()
-    user = message.from_user
-    await data_manager.get()
-    init_user(user.id, user.first_name, user.username)
-    user_data = data_manager.data["users"][str(user.id)]
-
-    print(f"📩 Пользователь {user.id} (@{user.username}) запустил бота", flush=True)
-    print(f"🎬 Отправка кружка пользователю {user.id}...", flush=True)
-
-    # Отправляем кружок (как в старом боте)
-    try:
-        video_note_path = "video_notes/welcome_2.mp4"
-
-        if os.path.exists(video_note_path):
-            print(f"✅ Файл найден: {video_note_path}", flush=True)
-
-            # Создаем InputFile для отправки
-            video_note = FSInputFile(video_note_path)
-
-            # Отправляем видео-кружок
-            await bot.send_video_note(
-                chat_id=user.id,
-                video_note=video_note,
-                duration=30  # Длительность в секундах
-            )
-
-            user_data["video_sent"] = True
-            await data_manager.mark_dirty()
-            print(f"✅ Кружок успешно отправлен пользователю {user.id}", flush=True)
-            await asyncio.sleep(0.5)
-        else:
-            print(f"❌ Файл НЕ НАЙДЕН: {video_note_path}", flush=True)
-
-            # Проверяем содержимое папки
-            if os.path.exists("video_notes"):
-                print(f"📁 Содержимое video_notes: {os.listdir('video_notes')}", flush=True)
-            else:
-                print("📁 Папка video_notes не существует", flush=True)
-
-            await message.answer(
-                "🎬 *Видео не найдено. Проверьте наличие файла welcome_2.mp4 в папке video_notes*\n\n"
-                "Но урок доступен по кнопке ниже! 👇",
-                parse_mode="Markdown"
-            )
-    except Exception as e:
-        print(f"❌ ОШИБКА отправки кружка: {e}", flush=True)
-        logging.error(f"Ошибка отправки кружка: {e}")
-        await message.answer(
-            "❌ *Ошибка при отправке видео. Попробуйте позже.*",
-            parse_mode="Markdown"
-        )
-
-    await show_main_menu(user.id)
-
-@dp.message(Command("stats"))
-async def cmd_stats(message: Message, state: FSMContext):
-    if message.from_user.id not in ADMIN_IDS:
-        await message.answer("❌ У вас нет прав")
-        return
-
-    await state.clear()
-    await data_manager.get()
-
-    # Сохраняем админа как админа (не показываем в статистике)
-    user_id_str = str(message.from_user.id)
-    if user_id_str not in data_manager.data["users"]:
-        data_manager.data["users"][user_id_str] = {
-            "first_name": message.from_user.first_name,
-            "username": message.from_user.username,
-            "first_seen": int(time.time()),
-            "last_active": int(time.time()),
-            "is_admin": True
-        }
-        await data_manager.mark_dirty()
-
-    await show_admin_panel(message.from_user.id)
-
-
-# ===================== ПОЛЬЗОВАТЕЛЬСКИЕ CALLBACK =====================
-@dp.callback_query(F.data == "back_to_modules")
-async def back_to_modules(callback: CallbackQuery):
-    user = callback.from_user
-    init_user(user.id, user.first_name, user.username)
-    await data_manager.mark_dirty()
-    await callback.answer()
-    await show_main_menu(user.id)
-
-
-@dp.callback_query(F.data == "my_progress")
-async def my_progress(callback: CallbackQuery):
-    user = callback.from_user
-    init_user(user.id, user.first_name, user.username)
-    await data_manager.mark_dirty()
-    await callback.answer()
-    await show_my_progress(user.id)
-
-
-@dp.callback_query(F.data == "my_feedbacks")
-async def my_feedbacks(callback: CallbackQuery):
-    user = callback.from_user
-    init_user(user.id, user.first_name, user.username)
-    await data_manager.mark_dirty()
-    await callback.answer()
-    await show_my_feedbacks(user.id)
-
-
-@dp.callback_query(F.data.startswith("my_goals:"))
-async def my_goals(callback: CallbackQuery):
-    user = callback.from_user
-    init_user(user.id, user.first_name, user.username)
-    await data_manager.mark_dirty()
-    await callback.answer()
-    page = int(callback.data.split(":")[1])
-    await show_my_goals(user.id, page)
-
-
-@dp.callback_query(F.data.startswith("module:"))
-async def process_module(callback: CallbackQuery):
-    user = callback.from_user
-    init_user(user.id, user.first_name, user.username)
-    await data_manager.mark_dirty()
-    await callback.answer()
-
-    module_id = int(callback.data.split(":")[1])
-    data_manager.data["users"][str(user.id)]["current_module"] = module_id
-    await data_manager.mark_dirty()
-    await show_module_lessons(user.id, module_id)
-
-
-@dp.callback_query(F.data.startswith("lesson:"))
-async def process_lesson(callback: CallbackQuery):
-    user = callback.from_user
-    init_user(user.id, user.first_name, user.username)
-    await data_manager.mark_dirty()
-    await callback.answer()
-
-    _, module_id_str, lesson_idx_str = callback.data.split(":")
-    module_id = int(module_id_str)
-    lesson_idx = int(lesson_idx_str)
-
-    data_manager.data["users"][str(user.id)]["current_module"] = module_id
-    data_manager.data["users"][str(user.id)]["current_lesson"] = lesson_idx
-    await data_manager.mark_dirty()
-    await show_lesson_question(user.id, module_id, lesson_idx)
-
-
-@dp.callback_query(F.data.startswith("answer:"))
-async def process_answer(callback: CallbackQuery):
-    await callback.answer()
-    _, module_id_str, lesson_idx_str, letter = callback.data.split(":")
-    module_id = int(module_id_str)
-    lesson_idx = int(lesson_idx_str)
-    user_id = callback.from_user.id
-
-    user = callback.from_user
-    init_user(user_id, user.first_name, user.username)
-
-    answer_key = f"module{module_id}_lesson{lesson_idx}"
-    old_answer = data_manager.data["users"][str(user_id)]["answers"].get(answer_key)
-
-    update_lesson_stats(module_id, lesson_idx, old_answer, letter)
-    data_manager.data["users"][str(user_id)]["answers"][answer_key] = letter
-    mark_lesson_done(user_id, module_id, lesson_idx)
-    await data_manager.mark_dirty()
-
-    if is_module_completed(user_id, module_id):
-        await show_module_completion(user_id, module_id)
-    else:
-        await show_module_lessons(user_id, module_id)
-
-
-# ===================== ОБРАБОТЧИК ФИДБЕКА (БЕЗ FSM) =====================
-
-# Словарь для хранения временных данных фидбека
-feedback_temp = {}
-
-
-@dp.callback_query(F.data.startswith("feedback_yes:"))
-async def feedback_yes(callback: CallbackQuery):
-    user = callback.from_user
-    init_user(user.id, user.first_name, user.username)
-    await data_manager.mark_dirty()
-    await callback.answer()
-
-    module_id = int(callback.data.split(":")[1])
-
-    # Сохраняем модуль для фидбека во временный словарь
-    feedback_temp[user.id] = module_id
-
-    await edit_main_message(
-        user.id,
-        "📝 Напиши свой фидбек по модулю в ответ на это сообщение:",
-        reply_markup=None
-    )
-
-
-@dp.callback_query(F.data.startswith("feedback_no:"))
-async def feedback_no(callback: CallbackQuery):
-    user = callback.from_user
-    init_user(user.id, user.first_name, user.username)
-    await data_manager.mark_dirty()
-    await callback.answer()
-    await show_main_menu(user.id)
-
-
-@dp.message(F.text)
-async def process_feedback(message: Message):
-    user_id = message.from_user.id
-
-    # Проверяем, есть ли пользователь в временном словаре
-    if user_id not in feedback_temp:
-        return
-
-    module_id = feedback_temp[user_id]
-    user = message.from_user
-    init_user(user_id, user.first_name, user.username)
-    await data_manager.mark_dirty()
-
-    # Удаляем из временного словаря
-    del feedback_temp[user_id]
-
-    module_str = str(module_id)
-    if module_str not in data_manager.data["users"][str(user_id)]["feedback"]:
-        data_manager.data["users"][str(user_id)]["feedback"][module_str] = []
-
-    data_manager.data["users"][str(user_id)]["feedback"][module_str].append(message.text)
-    await data_manager.mark_dirty()
-
-    user_info = f"{message.from_user.first_name} (@{message.from_user.username})"
-    module_name = MODULES[module_id]['name']
-    admin_text = (
-        f"💬 Новый фидбек!\n\n"
-        f"👤 {user_info}\n"
-        f"🆔 {user_id}\n"
-        f"📌 Модуль {module_id}. {module_name}\n\n"
-        f"💭 {message.text}"
-    )
-    await notify_admins(admin_text, delete_after=60)
-
-    # Удаляем сообщение пользователя
-    try:
-        await message.delete()
-    except Exception:
-        pass
-
-    thank_message = await message.answer("✨ Спасибо за ответ! 🤍")
-    asyncio.create_task(delete_message_after(thank_message.chat.id, thank_message.message_id, 3))
-
-    await show_main_menu(user_id)
-
-
-# ===================== ОБРАБОТЧИКИ ОТВЕТОВ НА НЕДЕЛЬНЫЕ ВОПРОСЫ =====================
-@dp.message(WeeklyPlanState)
-async def process_weekly_plan(message: Message, state: FSMContext):
-    user_id = message.from_user.id
-    user = message.from_user
-    init_user(user_id, user.first_name, user.username)
-
-    goal_entry = {
-        "date": int(time.time()),
-        "type": "plan",
-        "text": message.text
-    }
-    data_manager.data["users"][str(user_id)]["weekly_goals"].append(goal_entry)
-    await data_manager.mark_dirty()
-
-    user_info = f"{message.from_user.first_name} (@{message.from_user.username})"
-    admin_text = f"📝 Новый план на неделю от {user_info} (ID {user_id}):\n\n{message.text}"
-    await notify_admins(admin_text, delete_after=60)
-
-    thank = await message.answer("✨ Спасибо! Твои цели записаны. Удачи на неделе! 🤍")
-    asyncio.create_task(delete_message_after(message.chat.id, message.message_id, 2))
-    asyncio.create_task(delete_message_after(thank.chat.id, thank.message_id, 2))
-
-    await state.clear()
-
-
-@dp.message(WeeklyReviewState)
-async def process_weekly_review(message: Message, state: FSMContext):
-    user_id = message.from_user.id
-    user = message.from_user
-    init_user(user_id, user.first_name, user.username)
-
-    goal_entry = {
-        "date": int(time.time()),
-        "type": "review",
-        "text": message.text
-    }
-    data_manager.data["users"][str(user_id)]["weekly_goals"].append(goal_entry)
-    await data_manager.mark_dirty()
-
-    user_info = f"{message.from_user.first_name} (@{message.from_user.username})"
-    admin_text = f"🏁 Новый итог недели от {user_info} (ID {user_id}):\n\n{message.text}"
-    await notify_admins(admin_text, delete_after=60)
-
-    thank = await message.answer("✨ Спасибо! Твои итоги сохранены. Отличной недели! 🤍")
-    asyncio.create_task(delete_message_after(message.chat.id, message.message_id, 2))
-    asyncio.create_task(delete_message_after(thank.chat.id, thank.message_id, 2))
-
-    await state.clear()
-
-
-# ===================== АДМИНСКИЕ CALLBACK =====================
-@dp.callback_query(F.data.startswith("admin:"))
-async def admin_callback(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-    if callback.from_user.id not in ADMIN_IDS:
-        return
-
-    user = callback.from_user
-    init_user(user.id, user.first_name, user.username)
-    await data_manager.mark_dirty()
-
-    parts = callback.data.split(":")
-    action = parts[1]
-
-    if action == "back":
-        await show_admin_panel(callback.from_user.id)
-    elif action == "mailing":
-        await show_mailing_menu(callback.from_user.id)
-    elif action == "mailing:plan":
-        status_msg = await bot.send_message(callback.from_user.id, "🔄 Начинаю рассылку «Начало недели»...")
-        await send_weekly_plan_manual(callback.from_user.id, status_msg)
-    elif action == "mailing:review":
-        status_msg = await bot.send_message(callback.from_user.id, "🔄 Начинаю рассылку «Конец недели»...")
-        await send_weekly_review_manual(callback.from_user.id, status_msg)
-    elif action == "users":
-        page = int(parts[2]) if len(parts) > 2 else 0
-        await show_users_list(callback.from_user.id, page)
-    elif action == "user":
-        target_id = parts[2]
-        await show_user_detail(callback.from_user.id, target_id)
-    elif action == "user_answers":
-        target_id = parts[2]
-        page = int(parts[3])
-        await show_user_answers(callback.from_user.id, target_id, page)
-    elif action == "user_goals":
-        target_id = parts[2]
-        page = int(parts[3])
-        await show_user_goals(callback.from_user.id, target_id, page)
-    elif action == "module_stats":
-        await show_module_stats(callback.from_user.id)
-    elif action == "feedbacks":
-        page = int(parts[2]) if len(parts) > 2 else 0
-        await show_feedbacks(callback.from_user.id, page)
-    elif action == "overview":
-        await show_overview(callback.from_user.id)
-    elif action == "daily_answers":
-        page = int(parts[2]) if len(parts) > 2 else 0
-        await show_all_daily_answers(callback.from_user.id, page)
 
 
 # ===================== ЗАПУСК =====================
