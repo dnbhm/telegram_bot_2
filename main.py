@@ -1443,6 +1443,7 @@ async def show_all_daily_answers(admin_id: int, page: int = 0):
 
 
 # ===================== КОМАНДЫ ДЛЯ АДМИНОВ =====================
+# ===================== КОМАНДЫ ДЛЯ АДМИНОВ =====================
 
 @dp.message(Command("test_plan"))
 async def cmd_test_plan(message: Message, state: FSMContext):
@@ -1483,15 +1484,25 @@ async def cmd_send_plan(message: Message, state: FSMContext):
     for idx, user_id_str in enumerate(users):
         user_id = int(user_id_str)
         try:
-            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyPlanState)
+            # Просто отправляем сообщение - БЕЗ установки состояния!
             await bot.send_message(user_id, WEEKLY_PLAN_TEXT)
             sent += 1
+            await asyncio.sleep(0.3)
         except Exception as e:
             failed += 1
             logging.error(f"Ошибка рассылки (план) {user_id}: {e}")
 
-        if idx < len(users) - 1:
-            await asyncio.sleep(0.5)
+        # Показываем прогресс каждые 10 пользователей
+        if idx % 10 == 0 and idx > 0:
+            try:
+                await status_msg.edit_text(
+                    f"🔄 Рассылка плана...\n"
+                    f"📤 Отправлено: {sent}\n"
+                    f"❌ Ошибок: {failed}\n"
+                    f"📊 Прогресс: {idx + 1}/{len(users)}"
+                )
+            except Exception:
+                pass
 
     await status_msg.edit_text(
         f"✅ Рассылка «Начало недели» завершена!\n"
@@ -1517,15 +1528,25 @@ async def cmd_send_review(message: Message, state: FSMContext):
     for idx, user_id_str in enumerate(users):
         user_id = int(user_id_str)
         try:
-            await dp.storage.set_state(chat=user_id, user=user_id, state=WeeklyReviewState)
+            # Просто отправляем сообщение - БЕЗ установки состояния!
             await bot.send_message(user_id, WEEKLY_REVIEW_TEXT)
             sent += 1
+            await asyncio.sleep(0.3)
         except Exception as e:
             failed += 1
             logging.error(f"Ошибка рассылки (итог) {user_id}: {e}")
 
-        if idx < len(users) - 1:
-            await asyncio.sleep(0.5)
+        # Показываем прогресс каждые 10 пользователей
+        if idx % 10 == 0 and idx > 0:
+            try:
+                await status_msg.edit_text(
+                    f"🔄 Рассылка итогов...\n"
+                    f"📤 Отправлено: {sent}\n"
+                    f"❌ Ошибок: {failed}\n"
+                    f"📊 Прогресс: {idx + 1}/{len(users)}"
+                )
+            except Exception:
+                pass
 
     await status_msg.edit_text(
         f"✅ Рассылка «Конец недели» завершена!\n"
